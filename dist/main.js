@@ -293,7 +293,7 @@
   // src/report.ts
   function makeReport(build, findings2, keys2, errors2, events2) {
     return [
-      "STREAMFLIXBREW P01.1 | " + build,
+      "STREAMFLIXBREW P01.5 | " + build,
       "Rilevato: " + (/* @__PURE__ */ new Date()).toISOString(),
       "Compatibilit\xE0 TV: DA CONFERMARE con prova reale",
       ...Object.entries(findings2).map(([name, value]) => name + ": " + value),
@@ -320,6 +320,176 @@
       pages2.push(lines.slice(i, i + linesPerPage).join("\n"));
     return pages2.length ? pages2 : [""];
   }
+
+  // src/stability.ts
+  function bufferAhead(video) {
+    const time = video.currentTime;
+    for (let i = 0; i < video.buffered.length; i++) {
+      if (video.buffered.start(i) <= time && time < video.buffered.end(i))
+        return video.buffered.end(i) - time;
+    }
+    return 0;
+  }
+  var Stability = class {
+    constructor(video, now2 = () => performance.now()) {
+      this.video = video;
+      this.now = now2;
+      this.last = null;
+      this.running = false;
+      this.finished = false;
+      this.spans = {
+        waiting: { count: 0, ms: 0, max: 0, open: null },
+        stalled: { count: 0, ms: 0, max: 0, open: null }
+      };
+      this.samples = 0;
+      this.minimum = Infinity;
+      this.total = 0;
+      this.latest = 0;
+      this.timelineStops = 0;
+      this.frameHints = 0;
+      this.late = 0;
+      this.segments = { count: 0, total: 0, max: 0, latest: 0 };
+      this.level = "non osservato";
+      this.switches = 0;
+      this.gap = 0;
+      this.nudge = 0;
+      this.trace = [];
+      this.start = now2();
+      this.baseline = this.frames();
+    }
+    frames() {
+      try {
+        if (typeof this.video.getVideoPlaybackQuality === "function") {
+          const q = this.video.getVideoPlaybackQuality();
+          return {
+            decoded: q.totalVideoFrames,
+            dropped: q.droppedVideoFrames,
+            api: "quality total/dropped (non solo decoded)"
+          };
+        }
+        const v = this.video;
+        if (typeof v.webkitDecodedFrameCount === "number" && typeof v.webkitDroppedFrameCount === "number")
+          return {
+            decoded: v.webkitDecodedFrameCount,
+            dropped: v.webkitDroppedFrameCount,
+            api: "webkit decoded/dropped"
+          };
+      } catch {
+      }
+      return null;
+    }
+    add(name) {
+      this.trace.push(
+        ((this.now() - this.start) / 1e3).toFixed(1) + "s " + name
+      );
+      if (this.trace.length > 12) this.trace.shift();
+    }
+    event(name) {
+      if (this.finished || name === "timeupdate") return;
+      if (name === "progress") {
+        this.close("stalled");
+        return;
+      }
+      this.add(name);
+      if (name === "waiting" || name === "stalled") {
+        const span = this.spans[name];
+        span.count++;
+        if (span.open === null) span.open = this.now();
+      }
+      if (["playing", "pause", "seeking", "ended", "error"].includes(name)) {
+        this.close("waiting");
+        this.close("stalled");
+        this.last = null;
+      }
+      if (name === "playing") this.running = true;
+      if (["pause", "seeking", "ended", "error"].includes(name))
+        this.running = false;
+      if (name === "seeked") this.running = !this.video.paused;
+    }
+    close(name) {
+      const span = this.spans[name];
+      if (span.open !== null) {
+        const duration = this.now() - span.open;
+        span.ms += duration;
+        span.max = Math.max(span.max, duration);
+        span.open = null;
+      }
+    }
+    sample() {
+      var _a;
+      if (this.finished || !this.running || this.video.paused || this.video.seeking || this.video.ended) {
+        this.last = null;
+        return;
+      }
+      const wall = this.now(), media = this.video.currentTime, frames = this.frames();
+      const ahead = bufferAhead(this.video);
+      this.samples++;
+      this.latest = ahead;
+      this.total += ahead;
+      this.minimum = Math.min(this.minimum, ahead);
+      if (this.last) {
+        const elapsed = (wall - this.last.wall) / 1e3, moved = media - this.last.media;
+        if (elapsed > 1.5) this.late++;
+        if (elapsed >= 0.5 && moved >= 0 && moved < 0.05) this.timelineStops++;
+        if (elapsed >= 0.5 && moved > elapsed * this.video.playbackRate * 0.5 && frames && this.last.frames !== null && frames.decoded === this.last.frames)
+          this.frameHints++;
+      }
+      this.last = { wall, media, frames: (_a = frames == null ? void 0 : frames.decoded) != null ? _a : null };
+    }
+    segment(start, end) {
+      if (this.finished || !Number.isFinite(start) || !Number.isFinite(end) || end < start || start <= 0)
+        return;
+      const ms = end - start, s = this.segments;
+      s.count++;
+      s.total += ms;
+      s.max = Math.max(s.max, ms);
+      s.latest = ms;
+    }
+    selected(level, width, height, bitrate) {
+      if (this.finished) return;
+      this.switches++;
+      this.level = level + " " + (width && height ? width + "x" + height : "risoluzione n/d") + " " + (bitrate > 0 ? Math.round(bitrate / 1e3) + " kbps" : "bitrate n/d");
+      this.add("level " + level);
+    }
+    error(detail) {
+      if (this.finished) return;
+      if (detail === "bufferSeekOverHole") this.gap++;
+      if (detail === "bufferNudgeOnStall") this.nudge++;
+      this.add(detail);
+    }
+    finish() {
+      if (this.finished) return;
+      this.sample();
+      this.close("waiting");
+      this.close("stalled");
+      this.add("stop");
+      this.finished = true;
+    }
+    summary() {
+      const f = this.frames(), base = this.baseline;
+      const frames = f && base && f.api === base.api ? f.api + ": " + Math.max(0, f.decoded - base.decoded) + " / " + Math.max(0, f.dropped - base.dropped) : "n/d";
+      const span = (name) => {
+        const s2 = this.spans[name];
+        const open = s2.open === null ? 0 : this.now() - s2.open;
+        return name + " n=" + s2.count + " durata=" + ((s2.ms + open) / 1e3).toFixed(2) + "s max=" + (Math.max(s2.max, open) / 1e3).toFixed(2) + "s";
+      };
+      const s = this.segments;
+      return [
+        "ON \xB7 campioni 1s=" + this.samples + " \xB7 durata=" + ((this.now() - this.start) / 1e3).toFixed(1) + "s",
+        span("waiting"),
+        span("stalled"),
+        "Buffer avanti s ultimo/min/media: " + (this.samples ? [this.latest, this.minimum, this.total / this.samples].map((n) => n.toFixed(2)).join("/") : "n/d"),
+        "Video HTML5: " + (this.video.videoWidth || 0) + "x" + (this.video.videoHeight || 0),
+        "Livello: " + this.level + " \xB7 selezioni=" + this.switches + " (include iniziale)",
+        "Segmenti main n=" + s.count + " ms ultimo/media/max: " + (s.count ? [s.latest, s.total / s.count, s.max].map(Math.round).join("/") : "n/d"),
+        "Frame delta " + frames,
+        "Intervalli timeline quasi ferma=" + this.timelineStops + "; timeline avanza/frame fermi=" + this.frameHints + "; timer >1.5s=" + this.late,
+        "bufferSeekOverHole=" + this.gap + "; bufferNudgeOnStall=" + this.nudge,
+        "Indizi a 1s, non misura dei micro-freeze o dei frame presentati.",
+        "Ultimi 12 eventi relativi: " + this.trace.join(" | ")
+      ].join("\n");
+    }
+  };
 
   // node_modules/hls.js/dist/hls.mjs
   var isFiniteNumber = Number.isFinite || function(value) {
@@ -33277,6 +33447,8 @@ Schedule: ${scheduleItems.map((seg) => segmentToString(seg))} pos: ${this.timeli
       this.video = video;
       this.event = event;
       this.finding = finding;
+      this.metrics = null;
+      this.sampling = 0;
       this.instance = null;
       this.listeners = [];
       this.timer = 0;
@@ -33292,13 +33464,24 @@ Schedule: ${scheduleItems.map((seg) => segmentToString(seg))} pos: ${this.timeli
       this.counts[name] = (this.counts[name] || 0) + 1;
       this.record(name, this.counts[name] + " \xB7 " + value);
     }
-    start(url, useJs) {
+    start(url, useJs, diagnostics = false) {
       this.stop();
       this.prefix = useJs ? "HLS.js" : "HLS nativo";
       this.active = true;
       this.advanced = false;
       this.counts = {};
       this.record("sorgente", url);
+      this.record(
+        "stabilit\xE0",
+        diagnostics && useJs ? "attiva; riepilogo disponibile con Stop/Rapporto" : "OFF (attivare prima di avviare HLS.js)"
+      );
+      if (diagnostics && useJs) {
+        this.metrics = new Stability(this.video);
+        this.sampling = window.setInterval(() => {
+          var _a;
+          return (_a = this.metrics) == null ? void 0 : _a.sample();
+        }, 1e3);
+      }
       for (const name of [
         "playlist",
         "segmenti",
@@ -33319,7 +33502,11 @@ Schedule: ${scheduleItems.map((seg) => segmentToString(seg))} pos: ${this.timeli
       );
       const on = (name, fn) => {
         const handler = () => {
-          if (this.active) fn();
+          var _a;
+          if (this.active) {
+            (_a = this.metrics) == null ? void 0 : _a.event(name);
+            fn();
+          }
         };
         this.video.addEventListener(name, handler);
         this.listeners.push([name, handler]);
@@ -33416,18 +33603,36 @@ Schedule: ${scheduleItems.map((seg) => segmentToString(seg))} pos: ${this.timeli
         hls.on(Hls.Events.FRAG_LOADING, () => {
           if (current()) this.count("richieste segmenti", "iniziate");
         });
-        hls.on(Hls.Events.FRAG_LOADED, () => {
+        hls.on(Hls.Events.LEVEL_SWITCHED, (_, data) => {
+          var _a;
+          if (!current()) return;
+          const level = hls.levels[data.level];
+          (_a = this.metrics) == null ? void 0 : _a.selected(
+            data.level,
+            (level == null ? void 0 : level.width) || 0,
+            (level == null ? void 0 : level.height) || 0,
+            (level == null ? void 0 : level.bitrate) || 0
+          );
+        });
+        hls.on(Hls.Events.FRAG_LOADED, (_, data) => {
+          var _a;
+          if (current() && data.frag.type === "main")
+            (_a = this.metrics) == null ? void 0 : _a.segment(
+              data.frag.stats.loading.start,
+              data.frag.stats.loading.end
+            );
           if (current()) this.count("segmenti", "caricati");
         });
         hls.on(Hls.Events.BUFFER_APPENDED, () => {
           if (current()) this.count("MSE append", "completati");
         });
         hls.on(Hls.Events.ERROR, (_, data) => {
-          var _a;
+          var _a, _b;
           if (!current()) return;
+          (_a = this.metrics) == null ? void 0 : _a.error(data.details);
           this.count(
             "errori",
-            data.type + "/" + data.details + "; fatal=" + data.fatal + "; HTTP=" + (((_a = data.response) == null ? void 0 : _a.code) || "n/d")
+            data.type + "/" + data.details + "; fatal=" + data.fatal + "; HTTP=" + (((_b = data.response) == null ? void 0 : _b.code) || "n/d")
           );
           if (data.fatal) this.stop();
         });
@@ -33438,6 +33643,12 @@ Schedule: ${scheduleItems.map((seg) => segmentToString(seg))} pos: ${this.timeli
       }
     }
     stop() {
+      clearInterval(this.sampling);
+      if (this.metrics) {
+        this.metrics.finish();
+        this.record("stabilit\xE0", this.metrics.summary());
+        this.metrics = null;
+      }
       const active = this.active;
       this.active = false;
       clearTimeout(this.timer);
@@ -33518,13 +33729,13 @@ Schedule: ${scheduleItems.map((seg) => segmentToString(seg))} pos: ${this.timeli
         clearTimeout(this.timer);
       });
     }
-    startHls(url, useJs) {
+    startHls(url, useJs, diagnostics = false) {
       this.stop();
       this.mode = useJs ? "hls-js" : "hls-native";
       this.video.hidden = false;
       this.surface.hidden = false;
       this.hls = new HlsProbe(this.video, this.event, this.finding);
-      this.hls.start(url, useJs);
+      this.hls.start(url, useJs, diagnostics);
     }
     seek(delta) {
       if (this.mode === "hls-js" || this.mode === "hls-native") {
@@ -33733,6 +33944,7 @@ Schedule: ${scheduleItems.map((seg) => segmentToString(seg))} pos: ${this.timeli
   var storageBusy = false;
   var bridgeBusy = false;
   var player;
+  var stabilityEnabled = false;
   function log(message) {
     panel.classList.toggle("playing", (player == null ? void 0 : player.mode) != null);
     document.documentElement.classList.toggle(
@@ -33751,7 +33963,7 @@ Schedule: ${scheduleItems.map((seg) => segmentToString(seg))} pos: ${this.timeli
     log("Errore JavaScript: " + message);
   };
   function report() {
-    return makeReport("0.1.3+f48ab81676f7", findings, keys, errors, events);
+    return makeReport("0.1.5+8e2fd3f77456", findings, keys, errors, events);
   }
   function showPages(heading, content, reset = true) {
     title.textContent = heading;
@@ -33797,6 +34009,12 @@ Schedule: ${scheduleItems.map((seg) => segmentToString(seg))} pos: ${this.timeli
     log,
     (name, value) => {
       findings[name] = value;
+      if (name === "HLS.js / stabilit\xE0") {
+        log(
+          name + ": " + (value.startsWith("ON") ? "riepilogo nel rapporto" : value)
+        );
+        return;
+      }
       log(name + ": " + value);
       if (view2 === "playback")
         showPages(
@@ -33865,7 +34083,19 @@ Schedule: ${scheduleItems.map((seg) => segmentToString(seg))} pos: ${this.timeli
         view2 = "playback";
         player.startHls(
           id.endsWith("-remote") ? "https://test-streams.mux.dev/x36xhzz/x36xhzz.m3u8" : new URL("./media/hls/probe.m3u8", document.baseURI).href,
-          id.startsWith("hls-js")
+          id.startsWith("hls-js"),
+          stabilityEnabled
+        );
+        break;
+      case "stability":
+        stabilityEnabled = !stabilityEnabled;
+        element("stability").textContent = "Stabilit\xE0 prossimo test: " + (stabilityEnabled ? "ON" : "OFF");
+        element("stability").setAttribute(
+          "aria-pressed",
+          String(stabilityEnabled)
+        );
+        log(
+          "Diagnostica stabilit\xE0 " + (stabilityEnabled ? "ON" : "OFF") + ": applicata al prossimo avvio HLS.js, rapporto dopo Stop"
         );
         break;
       case "toggle":
@@ -33961,7 +34191,7 @@ Schedule: ${scheduleItems.map((seg) => segmentToString(seg))} pos: ${this.timeli
       log("Documento nascosto: player arrestato");
     }
   });
-  element("build").textContent = "0.1.3+f48ab81676f7";
+  element("build").textContent = "0.1.5+8e2fd3f77456";
   refreshAvplay();
   summary();
   focusAt(0);
