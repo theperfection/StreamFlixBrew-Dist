@@ -1,0 +1,95 @@
+<!doctype html>
+<html lang="it">
+  <head>
+    <meta charset="utf-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1" />
+    <title>StreamFlixBrew — diagnostica P01.1</title>
+    <link rel="stylesheet" href="./style.css" />
+    <script>
+      // ES5 bootstrap also reports bundle syntax/load failures on older engines.
+      (function () {
+        window.__probeErrors = [];
+        function record(message) {
+          window.__probeErrors.push(message);
+          if (window.__probeErrors.length > 40) window.__probeErrors.shift();
+          var box = document.getElementById("boot-errors");
+          if (box) box.textContent = window.__probeErrors.slice(-2).join("\n");
+          if (window.__probeOnError) window.__probeOnError(message);
+        }
+        window.addEventListener(
+          "error",
+          function (event) {
+            record(
+              event.message ||
+                "Risorsa non caricata: " +
+                  (event.target.src || event.target.href || "sconosciuta")
+            );
+          },
+          true
+        );
+        window.addEventListener("unhandledrejection", function (event) {
+          var reason = event.reason;
+          record(
+            "Promise: " +
+              (reason && reason.message ? reason.message : String(reason))
+          );
+        });
+        window.addEventListener("load", function () {
+          var box = document.getElementById("boot-errors");
+          if (box) box.textContent = window.__probeErrors.slice(-2).join("\n");
+        });
+      })();
+    </script>
+  </head>
+  <body>
+    <header>
+      <div class="eyebrow">STREAMFLIXBREW / LAB TV</div>
+      <h1>Diagnostica P01.1 <span id="build"></span></h1>
+      <p>
+        Frecce: focus · OK: azione · Back / Esc: stop e home · compatibilità TV
+        da verificare
+      </p>
+    </header>
+    <main>
+      <nav aria-label="Azioni diagnostiche">
+        <button id="summary">Riepilogo</button>
+        <button id="bridge">Prova bridge Samsung</button>
+        <button id="html5">Avvia MP4 HTML5</button>
+        <button id="avplay" disabled>Avvia MP4 AVPlay</button>
+        <button id="toggle">Pausa / Riprendi</button>
+        <button id="stop">Stop / Home</button>
+        <button id="storage">Ripeti test storage</button>
+        <button id="logs">Tasti / Errori</button>
+        <button id="report">Apri rapporto</button>
+        <button id="copy">Copia rapporto</button>
+        <button id="previous">Pagina precedente</button>
+        <button id="next">Pagina successiva</button>
+      </nav>
+      <section class="panel" aria-label="Risultati">
+        <h2 id="panel-title">Avvio diagnostica</h2>
+        <div id="player-surface" hidden>
+          <object
+            id="av-object"
+            type="application/avplayer"
+            aria-label="Superficie AVPlay Samsung"
+            hidden
+          ></object>
+          <video id="video" playsinline preload="none" hidden></video>
+          <p class="av-hint">
+            AVPlay: verificare immagine, tono e rettangolo sul TV
+          </p>
+        </div>
+        <pre id="details">
+Bundle non ancora avviato. Se il messaggio rimane, annotare gli errori in basso.</pre>
+        <p id="page">—</p>
+      </section>
+    </main>
+    <footer>
+      <p id="status" role="status" aria-live="polite">
+        In attesa del bundle locale…
+      </p>
+      <pre id="boot-errors" aria-label="Ultimi errori JavaScript"></pre>
+    </footer>
+    <script src="./main.js"></script>
+  </body>
+</html>

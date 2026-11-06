@@ -1,0 +1,17 @@
+{
+  "name": "streamflixbrew",
+  "version": "0.1.1",
+  "private": true,
+  "description": "P01.1: diagnostica sperimentale TizenBrew, HTML5 e AVPlay",
+  "packageType": "app",
+  "appName": "StreamFlixBrew — diagnostica P01.1",
+  "appPath": "dist/index.html",
+  "keys": [
+    "MediaPlayPause",
+    "MediaPlay",
+    "MediaPause",
+    "MediaStop",
+    "MediaFastForward",
+    "MediaRewind"
+  ]
+}

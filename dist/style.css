@@ -1,0 +1,138 @@
+:root {
+  color-scheme: dark;
+  font-family: Arial, sans-serif;
+  background: #101724;
+  color: #edf4ff;
+  font-size: 1.35vw;
+}
+* {
+  box-sizing: border-box;
+}
+body {
+  margin: 0;
+  padding: 2.3vh 3.5vw;
+}
+header .eyebrow {
+  color: #74e2c2;
+  font-size: 0.78rem;
+  letter-spacing: 0.13em;
+}
+h1 {
+  font-size: 1.7rem;
+  margin: 0.35rem 0;
+}
+h1 span {
+  color: #a6b9d4;
+  font-size: 0.7rem;
+}
+header p {
+  margin: 0.5rem 0 1rem;
+  color: #c5d3e8;
+}
+main {
+  display: flex;
+  align-items: stretch;
+}
+nav {
+  width: 38%;
+  display: grid;
+  grid-template-columns: 1fr 1fr;
+  grid-auto-rows: minmax(3.4rem, auto);
+  padding-right: 1.3rem;
+}
+button {
+  font: inherit;
+  text-align: left;
+  background: #25334c;
+  color: #edf4ff;
+  border: 0.15rem solid transparent;
+  border-radius: 0.4rem;
+  margin: 0.28rem;
+  padding: 0.7rem;
+  cursor: pointer;
+}
+button:focus {
+  outline: 0.2rem solid #74e2c2;
+  background: #364d6f;
+}
+button:disabled {
+  opacity: 0.45;
+  cursor: default;
+}
+.panel {
+  width: 62%;
+  height: 64vh;
+  padding: 1rem 1.3rem;
+  border-radius: 0.6rem;
+  background: #192337;
+  border: 1px solid #42526c;
+}
+h2 {
+  font-size: 1.05rem;
+  margin: 0 0 0.6rem;
+  color: #74e2c2;
+}
+pre {
+  font: 0.9rem/1.35 monospace;
+  white-space: pre-wrap;
+  overflow-wrap: break-word;
+  word-break: break-word;
+  margin: 0.4rem 0;
+}
+#details {
+  max-height: 48vh;
+  overflow: hidden;
+}
+#page {
+  color: #afc3dd;
+  font-size: 0.8rem;
+  margin: 0.5rem 0 0;
+}
+#player-surface {
+  position: relative;
+  width: 100%;
+  height: 30vh;
+  background: transparent;
+}
+#video {
+  width: 100%;
+  height: 100%;
+  background: #000;
+  object-fit: contain;
+  position: relative;
+  z-index: 1;
+}
+.av-hint {
+  position: absolute;
+  top: 0;
+  font-size: 0.8rem;
+}
+[hidden] {
+  display: none !important;
+}
+footer {
+  margin-top: 0.8rem;
+}
+#status {
+  color: #74e2c2;
+  margin: 0.3rem 0;
+  font-size: 0.85rem;
+}
+#boot-errors {
+  color: #ffbdac;
+  font-size: 0.72rem;
+  max-height: 7vh;
+  overflow: hidden;
+}
+.playing #details {
+  max-height: 19vh;
+}
+#av-object {
+  width: 100%;
+  height: 100%;
+}
+.avplay-active,
+.avplay-active body,
+.avplay-active .panel {
+  background: transparent;
+}
