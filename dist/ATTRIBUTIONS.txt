@@ -1,3 +1,15 @@
+HLS.js e demo P01.3
+
+HLS.js 1.6.15 è distribuito nel bundle senza modificare la libreria originale;
+la trasformazione sintattica è eseguita da esbuild per chrome76. Licenza Apache-2.0,
+Copyright 2017 Dailymotion, derivazioni Brightcove 2013–2015: il file LICENSE del
+pacchetto è copiato integralmente in dist/HLS-LICENSE.txt e il testo completo della
+licenza in dist/Apache-2.0.txt. Commenti legali del bundle preservati da esbuild.
+
+Il demo remoto Big Buck Bunny è attribuito a Blender Foundation / Peach Open Movie,
+CC BY 3.0: https://peach.blender.org/about/. Non viene scaricato nella distribuzione.
+Il segnale HLS locale deriva esclusivamente dal pattern sintetico già documentato.
+
 # Segnale di prova locale
 
 `probe.mp4` contiene esclusivamente un pattern sintetico animato FFmpeg `testsrc2`
@@ -9,18 +21,3 @@ del repository. FFmpeg è uno strumento di generazione e non viene distribuito.
 12 secondi, 640×360, 24 fps, H.264 Constrained Baseline / livello 3.0, yuv420p,
 AAC-LC stereo 48 kHz, MP4 faststart. Si deve vedere il pattern muoversi e udire un
 tono continuo: regolare il volume prima del test. Non prova 4K, DRM, HLS o sottotitoli.
-
-Comando di generazione (FFmpeg 7.1.5; il file già incluso non viene rigenerato dalla build):
-
-```sh
-ffmpeg -hide_banner -loglevel error \
-  -f lavfi -i 'testsrc2=size=640x360:rate=24' \
-  -f lavfi -i 'sine=frequency=440:sample_rate=48000' \
-  -t 12 -c:v libx264 -profile:v baseline -level:v 3.0 -pix_fmt yuv420p \
-  -b:v 350k -threads 1 -c:a aac -b:a 64k -ac 2 -movflags +faststart \
-  -map_metadata -1 -fflags +bitexact -flags:v +bitexact -flags:a +bitexact \
-  assets/media/probe.mp4
-```
-
-L'identità del file è registrata in `probe.sha256`. La riproducibilità della build
-usa il file versionato, non dipende dalla versione di FFmpeg installata.

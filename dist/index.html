@@ -3,7 +3,7 @@
   <head>
     <meta charset="utf-8" />
     <meta name="viewport" content="width=device-width, initial-scale=1" />
-    <title>StreamFlixBrew — diagnostica P01.1</title>
+    <title>StreamFlixBrew — diagnostica P01.3</title>
     <link rel="stylesheet" href="./style.css" />
     <script>
       // ES5 bootstrap also reports bundle syntax/load failures on older engines.
@@ -44,7 +44,7 @@
   <body>
     <header>
       <div class="eyebrow">STREAMFLIXBREW / LAB TV</div>
-      <h1>Diagnostica P01.1 <span id="build"></span></h1>
+      <h1>Diagnostica P01.3 <span id="build"></span></h1>
       <p>
         Frecce: focus · OK: azione · Back / Esc: stop e home · compatibilità TV
         da verificare
@@ -64,6 +64,10 @@
         <button id="copy">Copia rapporto</button>
         <button id="previous">Pagina precedente</button>
         <button id="next">Pagina successiva</button>
+        <button id="hls-native">HLS nativo locale</button>
+        <button id="hls-js">HLS.js locale</button>
+        <button id="hls-native-remote">HLS nativo remoto BBB</button>
+        <button id="hls-js-remote">HLS.js remoto BBB</button>
       </nav>
       <section class="panel" aria-label="Risultati">
         <h2 id="panel-title">Avvio diagnostica</h2>
