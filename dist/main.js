@@ -1,5 +1,158 @@
 "use strict";
 (() => {
+  // src/foundation/domain.ts
+  function success(value) {
+    return { ok: true, value };
+  }
+  function failure(code, message, retryable = false, status3) {
+    return { ok: false, error: { code, message, retryable, status: status3 } };
+  }
+
+  // src/foundation/local-diagnostic-transport.ts
+  var base = "http://127.0.0.1:17861";
+  function object(value) {
+    return typeof value === "object" && value !== null;
+  }
+  function number(value) {
+    return typeof value === "number" && Number.isFinite(value) && value >= 0;
+  }
+  var LocalDiagnosticTransport = class {
+    constructor(fetchResource = (resource, options) => fetch(resource, options), deadlineMs = 12e3) {
+      this.fetchResource = fetchResource;
+      this.deadlineMs = deadlineMs;
+    }
+    async read(path, context) {
+      var _a, _b, _c, _d, _e, _f, _g;
+      if ((_a = context.signal) == null ? void 0 : _a.aborted)
+        return failure("cancelled", "Local diagnostic cancelled");
+      const controller = new AbortController();
+      let timedOut = false;
+      const cancel = () => controller.abort();
+      (_b = context.signal) == null ? void 0 : _b.addEventListener("abort", cancel);
+      const timer = setTimeout(
+        () => {
+          timedOut = true;
+          controller.abort();
+        },
+        path === "/health" ? Math.min(2e3, this.deadlineMs) : this.deadlineMs
+      );
+      try {
+        const response = await this.fetchResource(base + path, {
+          method: "GET",
+          credentials: "omit",
+          redirect: "error",
+          cache: "no-store",
+          signal: controller.signal
+        });
+        if (!((_c = response.headers.get("content-type")) == null ? void 0 : _c.startsWith("application/json")))
+          return failure("invalid-data", "Local diagnostic MIME mismatch");
+        const declared = response.headers.get("content-length");
+        if (declared && Number(declared) > 2048)
+          return failure("invalid-data", "Local diagnostic response too large");
+        const reader = (_d = response.body) == null ? void 0 : _d.getReader();
+        if (!reader)
+          return failure(
+            "invalid-data",
+            "Local diagnostic streaming response unavailable"
+          );
+        const parts = [];
+        let length = 0;
+        while (true) {
+          const chunk = await reader.read();
+          if (chunk.done) break;
+          length += chunk.value.length;
+          if (length > 2048) {
+            await reader.cancel();
+            return failure("invalid-data", "Local diagnostic response too large");
+          }
+          parts.push(chunk.value);
+        }
+        const joined = new Uint8Array(length);
+        let offset = 0;
+        for (const part of parts) {
+          joined.set(part, offset);
+          offset += part.length;
+        }
+        const parsed = JSON.parse(new TextDecoder().decode(joined));
+        if (!response.ok) {
+          const permitted = [
+            "BUSY",
+            "TIMEOUT",
+            "HTTPS_CONNECTION",
+            "TLS_VERIFICATION",
+            "REMOTE_READ",
+            "REMOTE_STATUS",
+            "RESPONSE_LIMIT",
+            "CANCELLED",
+            "CLIENT_CLOSED",
+            "ORIGIN_OR_HOST",
+            "PATH_NOT_ALLOWED",
+            "BODY_NOT_ALLOWED",
+            "METHOD_NOT_ALLOWED",
+            "PREFLIGHT_NOT_ALLOWED"
+          ];
+          return failure(
+            "http",
+            object(parsed) && parsed.protocol === "p023-v1" && typeof parsed.error === "string" && permitted.includes(parsed.error) ? "Local diagnostic: " + parsed.error : "Local diagnostic HTTP failure",
+            response.status === 429 || response.status >= 500,
+            response.status
+          );
+        }
+        return ((_e = context.signal) == null ? void 0 : _e.aborted) ? failure("cancelled", "Local diagnostic cancelled") : success(parsed);
+      } catch {
+        return ((_f = context.signal) == null ? void 0 : _f.aborted) ? failure("cancelled", "Local diagnostic cancelled") : timedOut ? failure("network", "Local diagnostic timeout", true) : failure(
+          "network",
+          "Local diagnostic unavailable, blocked by CORS, or malformed response",
+          true
+        );
+      } finally {
+        clearTimeout(timer);
+        (_g = context.signal) == null ? void 0 : _g.removeEventListener("abort", cancel);
+      }
+    }
+    async health(context = {}) {
+      const result = await this.read("/health", context);
+      if (!result.ok) return result;
+      const value = result.value;
+      if (!object(value) || value.protocol !== "p023-v1" || value.ok !== true || value.service !== "streamflixbrew-diagnostic" || typeof value.nodeVersion !== "string" || !/^v\d+\.\d+\.\d+/.test(value.nodeVersion) || typeof value.instance !== "string" || !/^[0-9a-f]{16}$/.test(value.instance) || !number(value.uptimeMs))
+        return failure("invalid-data", "Invalid local health schema");
+      return success({
+        protocol: "p023-v1",
+        ok: true,
+        service: "streamflixbrew-diagnostic",
+        nodeVersion: value.nodeVersion,
+        instance: value.instance,
+        uptimeMs: value.uptimeMs
+      });
+    }
+    async request(request, context = {}) {
+      if (request.url !== "https://example.com/" || request.method !== "GET" || request.body !== void 0 || request.http && (Object.keys(request.http.headers || {}).length || request.http.cookies || request.http.referer || request.http.token || request.http.maintainToken))
+        return failure(
+          "http-requirements",
+          "Diagnostic transport permits only GET https://example.com/ without metadata"
+        );
+      const result = await this.read("/probe", context);
+      if (!result.ok) return result;
+      const value = result.value;
+      if (!object(value) || value.protocol !== "p023-v1" || value.ok !== true || value.target !== "https://example.com/" || !number(value.remoteStatus) || !Number.isInteger(value.remoteStatus) || value.remoteStatus < 200 || value.remoteStatus >= 300 || !number(value.bytes) || !Number.isInteger(value.bytes) || value.bytes > 65536 || !number(value.durationMs))
+        return failure("invalid-data", "Invalid local probe schema");
+      const summary2 = {
+        protocol: "p023-v1",
+        ok: true,
+        target: "https://example.com/",
+        remoteStatus: value.remoteStatus,
+        bytes: value.bytes,
+        durationMs: value.durationMs
+      };
+      return success({
+        status: 200,
+        url: base + "/probe",
+        headers: { "content-type": "application/json" },
+        body: JSON.stringify(summary2)
+      });
+    }
+  };
+
   // src/platform.ts
   var tv = window;
   function describeError(error) {
@@ -466,8 +619,8 @@
       this.finished = true;
     }
     summary() {
-      const f = this.frames(), base = this.baseline;
-      const frames = f && base && f.api === base.api ? f.api + ": " + Math.max(0, f.decoded - base.decoded) + " / " + Math.max(0, f.dropped - base.dropped) : "n/d";
+      const f = this.frames(), base2 = this.baseline;
+      const frames = f && base2 && f.api === base2.api ? f.api + ": " + Math.max(0, f.decoded - base2.decoded) + " / " + Math.max(0, f.dropped - base2.dropped) : "n/d";
       const span = (name) => {
         const s2 = this.spans[name];
         const open = s2.open === null ? 0 : this.now() - s2.open;
@@ -1097,19 +1250,19 @@
     AUDIOVIDEO: "audiovideo"
   };
   var BaseSegment = class {
-    constructor(base) {
+    constructor(base2) {
       this._byteRange = null;
       this._url = null;
       this._stats = null;
       this._streams = null;
       this.base = void 0;
       this.relurl = void 0;
-      if (typeof base === "string") {
-        base = {
-          url: base
+      if (typeof base2 === "string") {
+        base2 = {
+          url: base2
         };
       }
-      this.base = base;
+      this.base = base2;
       makeEnumerable(this, "stats");
     }
     // setByteRange converts a EXT-X-BYTERANGE attribute into a two element array
@@ -1190,8 +1343,8 @@
     return frag.sn !== "initSegment";
   }
   var Fragment = class extends BaseSegment {
-    constructor(type, base) {
-      super(base);
+    constructor(type, base2) {
+      super(base2);
       this._decryptdata = null;
       this._programDateTime = null;
       this._ref = null;
@@ -1379,8 +1532,8 @@
     }
   };
   var Part = class extends BaseSegment {
-    constructor(partAttrs, frag, base, index, previous) {
-      super(base);
+    constructor(partAttrs, frag, base2, index, previous) {
+      super(base2);
       this.fragOffset = 0;
       this.duration = 0;
       this.gap = false;
@@ -1415,8 +1568,8 @@
       return !!(elementaryStreams.audio || elementaryStreams.video || elementaryStreams.audiovideo);
     }
   };
-  function getOwnPropertyDescriptorFromPrototypeChain(object, property) {
-    const prototype = Object.getPrototypeOf(object);
+  function getOwnPropertyDescriptorFromPrototypeChain(object2, property) {
+    const prototype = Object.getPrototypeOf(object2);
     if (prototype) {
       const propertyDescriptor = Object.getOwnPropertyDescriptor(prototype, property);
       if (propertyDescriptor) {
@@ -1425,11 +1578,11 @@
       return getOwnPropertyDescriptorFromPrototypeChain(prototype, property);
     }
   }
-  function makeEnumerable(object, property) {
-    const d = getOwnPropertyDescriptorFromPrototypeChain(object, property);
+  function makeEnumerable(object2, property) {
+    const d = getOwnPropertyDescriptorFromPrototypeChain(object2, property);
     if (d) {
       d.enumerable = true;
-      Object.defineProperty(object, property, d);
+      Object.defineProperty(object2, property, d);
     }
   }
   var UINT32_MAX$1 = Math.pow(2, 32) - 1;
@@ -3113,7 +3266,7 @@
       return value;
     };
   };
-  var stringify = (object, replacer) => JSON.stringify(object, omitCircularRefsReplacer(replacer));
+  var stringify = (object2, replacer) => JSON.stringify(object2, omitCircularRefsReplacer(replacer));
   function getStartCodecTier(codecTiers, currentVideoRange, currentBw, audioPreference, videoPreference) {
     const codecSets = Object.keys(codecTiers);
     const channelsPreference = audioPreference == null ? void 0 : audioPreference.channels;
@@ -7068,7 +7221,7 @@
     }
     static parseLevelPlaylist(string, baseurl, id, type, levelUrlId, multivariantVariableList) {
       var _LEVEL_PLAYLIST_REGEX;
-      const base = {
+      const base2 = {
         url: baseurl
       };
       const level = new LevelDetails(baseurl);
@@ -7081,7 +7234,7 @@
       let discontinuityCounter = 0;
       let currentBitrate = 0;
       let prevFrag = null;
-      let frag = new Fragment(type, base);
+      let frag = new Fragment(type, base2);
       let result;
       let i;
       let levelkeys;
@@ -7099,7 +7252,7 @@
       while ((result = LEVEL_PLAYLIST_REGEX_FAST.exec(string)) !== null) {
         if (createNextFrag) {
           createNextFrag = false;
-          frag = new Fragment(type, base);
+          frag = new Fragment(type, base2);
           frag.playlistOffset = totalduration;
           frag.setStart(totalduration);
           frag.sn = currentSN;
@@ -7309,7 +7462,7 @@
             case "MAP": {
               const mapAttrs = new AttrList(value1, level);
               if (frag.duration) {
-                const init = new Fragment(type, base);
+                const init = new Fragment(type, base2);
                 setInitSegment(init, mapAttrs, id, levelkeys);
                 currentInitSegment = init;
                 frag.initSegment = currentInitSegment;
@@ -7359,7 +7512,7 @@
               const previousFragmentPart = currentPart > 0 ? partList[partList.length - 1] : void 0;
               const index = currentPart++;
               const partAttrs = new AttrList(value1, level);
-              const part = new Part(partAttrs, frag, base, index, previousFragmentPart);
+              const part = new Part(partAttrs, frag, base2, index, previousFragmentPart);
               partList.push(part);
               frag.duration += part.duration;
               break;
@@ -19247,9 +19400,9 @@ transfer tracks: ${stringify(transferredTracks, (key, value) => key === "initSeg
     return value != null && value !== "" && value !== false;
   }
   var CMCD_EVENT_MODE = "event";
-  function urlToRelativePath(url, base) {
+  function urlToRelativePath(url, base2) {
     const to = new URL(url);
-    const from = new URL(base);
+    const from = new URL(base2);
     if (to.origin !== from.origin) {
       return url;
     }
@@ -20889,8 +21042,8 @@ transfer tracks: ${stringify(transferredTracks, (key, value) => key === "initSeg
     }
     setMediaKeysServerCertificate(mediaKeys2, keySystem, cert) {
       return new Promise((resolve, reject) => {
-        mediaKeys2.setServerCertificate(cert).then((success) => {
-          this.log(`setServerCertificate ${success ? "success" : "not supported by CDM"} (${cert.byteLength}) on "${keySystem}"`);
+        mediaKeys2.setServerCertificate(cert).then((success2) => {
+          this.log(`setServerCertificate ${success2 ? "success" : "not supported by CDM"} (${cert.byteLength}) on "${keySystem}"`);
           resolve(mediaKeys2);
         }).catch((error) => {
           reject(new EMEKeyError({
@@ -21889,7 +22042,7 @@ transfer tracks: ${stringify(transferredTracks, (key, value) => key === "initSeg
     return `${interstitial.identifier}-${assetListIndex + 1}-${hash(uri)}`;
   }
   var InterstitialEvent = class {
-    constructor(dateRange, base) {
+    constructor(dateRange, base2) {
       this.base = void 0;
       this._duration = null;
       this._timelineStart = null;
@@ -21914,7 +22067,7 @@ transfer tracks: ${stringify(transferredTracks, (key, value) => key === "initSeg
       this.resumeAnchor = void 0;
       this.error = void 0;
       this.resetOnResume = void 0;
-      this.base = base;
+      this.base = base2;
       this.dateRange = dateRange;
       this.setDateRange(dateRange);
     }
@@ -24975,7 +25128,7 @@ Schedule: ${scheduleItems.map((seg) => segmentToString(seg))} pos: ${this.timeli
     onSubtitleFragProcessed(event, data) {
       const {
         frag,
-        success
+        success: success2
       } = data;
       if (!this.fragContextChanged(frag)) {
         if (isMediaFragment(frag)) {
@@ -24983,7 +25136,7 @@ Schedule: ${scheduleItems.map((seg) => segmentToString(seg))} pos: ${this.timeli
         }
         this.state = State.IDLE;
       }
-      if (!success) {
+      if (!success2) {
         return;
       }
       const buffered = this.tracksBuffered[this.currentTrackId];
@@ -33789,7 +33942,7 @@ Schedule: ${scheduleItems.map((seg) => segmentToString(seg))} pos: ${this.timeli
       this.surface.hidden = false;
       this.video.hidden = true;
       const active = () => generation === this.generation && this.av === api;
-      const failure = (error) => {
+      const failure2 = (error) => {
         if (!active()) return;
         this.pending = false;
         this.finding("Test AVPlay", "fallito: " + describeError(error));
@@ -33805,8 +33958,8 @@ Schedule: ${scheduleItems.map((seg) => segmentToString(seg))} pos: ${this.timeli
           Math.round(rect.height * 1080 / window.innerHeight)
         );
         api.setListener({
-          onerror: failure,
-          onerrormsg: (code, message) => failure(code + ": " + message),
+          onerror: failure2,
+          onerrormsg: (code, message) => failure2(code + ": " + message),
           onbufferingstart: () => {
             if (active()) this.event("AVPlay: buffering");
           },
@@ -33831,7 +33984,7 @@ Schedule: ${scheduleItems.map((seg) => segmentToString(seg))} pos: ${this.timeli
         });
         this.finding("Test AVPlay", "preparazione in corso");
         this.timer = window.setTimeout(
-          () => failure("timeout preparazione AVPlay (15 s)"),
+          () => failure2("timeout preparazione AVPlay (15 s)"),
           15e3
         );
         api.prepareAsync(() => {
@@ -33845,11 +33998,11 @@ Schedule: ${scheduleItems.map((seg) => segmentToString(seg))} pos: ${this.timeli
             );
             this.event("AVPlay: stato " + api.getState());
           } catch (error) {
-            failure(error);
+            failure2(error);
           }
-        }, failure);
+        }, failure2);
       } catch (error) {
-        failure(error);
+        failure2(error);
       }
     }
     async control(action) {
@@ -33943,6 +34096,7 @@ Schedule: ${scheduleItems.map((seg) => segmentToString(seg))} pos: ${this.timeli
   var frozenReport = "";
   var storageBusy = false;
   var bridgeBusy = false;
+  var localServiceBusy = false;
   var player;
   var stabilityEnabled = false;
   function log(message) {
@@ -33963,7 +34117,7 @@ Schedule: ${scheduleItems.map((seg) => segmentToString(seg))} pos: ${this.timeli
     log("Errore JavaScript: " + message);
   };
   function report() {
-    return makeReport("0.1.5+8e2fd3f77456", findings, keys, errors, events);
+    return makeReport("0.1.6+852d47bdc5f4", findings, keys, errors, events);
   }
   function showPages(heading, content, reset = true) {
     title.textContent = heading;
@@ -34054,6 +34208,32 @@ Schedule: ${scheduleItems.map((seg) => segmentToString(seg))} pos: ${this.timeli
       case "summary":
         summary();
         break;
+      case "local-service": {
+        if (localServiceBusy) return;
+        localServiceBusy = true;
+        findings["HTTPS servizio"] = "non eseguito in questa prova";
+        findings["Origine servizio"] = "attesa http://127.0.0.1:8081; corrente " + location.origin;
+        log("Servizio locale: health e HTTPS fissa example.com\u2026");
+        try {
+          const transport = new LocalDiagnosticTransport();
+          const health = await transport.health();
+          if (!health.ok) {
+            findings["Servizio Node"] = health.error.code + ": " + health.error.message;
+          } else {
+            findings["Servizio Node"] = "Node " + health.value.nodeVersion + "; istanza " + health.value.instance + "; uptime " + Math.round(health.value.uptimeMs / 1e3) + "s";
+            const probe2 = await transport.request({
+              method: "GET",
+              url: "https://example.com/"
+            });
+            findings["HTTPS servizio"] = probe2.ok ? probe2.value.body : probe2.error.code + ": " + probe2.error.message + " HTTP " + (probe2.error.status || "n/d");
+          }
+          log("Servizio locale: verifica conclusa; leggere rapporto");
+          summary();
+        } finally {
+          localServiceBusy = false;
+        }
+        break;
+      }
       case "bridge":
         if (bridgeBusy) return;
         bridgeBusy = true;
@@ -34191,7 +34371,7 @@ Schedule: ${scheduleItems.map((seg) => segmentToString(seg))} pos: ${this.timeli
       log("Documento nascosto: player arrestato");
     }
   });
-  element("build").textContent = "0.1.5+8e2fd3f77456";
+  element("build").textContent = "0.1.6+852d47bdc5f4";
   refreshAvplay();
   summary();
   focusAt(0);

@@ -1,11 +1,12 @@
 {
   "name": "streamflixbrew",
-  "version": "0.1.5",
+  "version": "0.1.6",
   "private": true,
   "description": "Diagnostica opzionale di stabilità HLS.js",
   "packageType": "app",
   "appName": "StreamFlixBrew — diagnostica P01.5",
   "appPath": "dist/index.html",
+  "serviceFile": "dist/local-diagnostic.cjs",
   "keys": [
     "MediaPlayPause",
     "MediaPlay",
