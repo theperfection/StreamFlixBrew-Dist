@@ -25,8 +25,8 @@ button:focus {
 }
 #tv-stage {
   position: absolute;
-  width: 960px;
-  height: 540px;
+  width: var(--tv-logical-width);
+  height: var(--tv-logical-height);
   transform-origin: top left;
   display: flex;
   background: #181818;
@@ -147,9 +147,9 @@ button:focus {
 #tv-background {
   position: fixed;
   top: 0;
-  left: 64px;
+  left: var(--tv-rail-width);
   right: 0;
-  height: 540px;
+  height: var(--tv-logical-height);
   pointer-events: none;
   background: linear-gradient(90deg, #181818, transparent 50%), #1b1b1b;
 }
@@ -248,8 +248,9 @@ button:focus {
 .cards {
   display: flex;
   overflow-x: auto;
-  padding: 8px 70px 12px;
-  margin-top: 8px;
+  /* Keep heading-to-poster offset 16px; reserve paint space for zoom + outline. */
+  padding: 10px 70px 12px;
+  margin-top: 6px;
   scrollbar-width: none;
 }
 .card {
@@ -320,7 +321,7 @@ button:focus {
   top: 0;
   right: 0;
   bottom: 0;
-  left: 64px;
+  left: var(--tv-rail-width);
   z-index: 4;
   background: #181818;
   padding: 50px 70px;

@@ -2046,7 +2046,7 @@
       render();
     }
   });
-  document.getElementById("catalog-build").textContent = "0.1.7-dev.2-dev-metadata+9008331b3ff6";
+  document.getElementById("catalog-build").textContent = "0.1.7-dev.3-dev-metadata+5984617bbe85";
   setup();
   home();
 })();

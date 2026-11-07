@@ -1134,6 +1134,18 @@
     return names[key] || codes[code] || "unknown";
   }
 
+  // src/tv/layout.ts
+  var TV_LOGICAL_WIDTH = 1120;
+  var TV_LOGICAL_HEIGHT = 630;
+  function fitTvViewport(width, height) {
+    const scale2 = Math.min(width / TV_LOGICAL_WIDTH, height / TV_LOGICAL_HEIGHT);
+    return {
+      scale: scale2,
+      left: (width - TV_LOGICAL_WIDTH * scale2) / 2,
+      top: (height - TV_LOGICAL_HEIGHT * scale2) / 2
+    };
+  }
+
   // src/tv/model.ts
   function homeProjection(categories2) {
     var _a;
@@ -1192,7 +1204,7 @@
   var lastRotation = Date.now();
   function setStatus(message = "") {
     status.textContent = "P03 \xB7 " + (source === "fixture" ? "FIXTURE SINTETICHE" : import_catalog_metadata5.LIVE_APPROVED ? "SOLO SVILUPPO \xB7 LIVE" : "SERVIZIO LIVE BLOCCATO") + (message ? " \xB7 " + message : "");
-    status.title = "0.1.7-dev.2-dev-metadata+9008331b3ff6";
+    status.title = "0.1.7-dev.3-dev-metadata+5984617bbe85";
   }
   function setupCatalog() {
     const registry = new ProviderRegistry();
@@ -1204,14 +1216,20 @@
     catalog = new CatalogService(registry);
   }
   function scale() {
-    const ratio = Math.min(window.innerWidth / 960, window.innerHeight / 540);
-    stage.style.transform = "scale(" + ratio + ")";
-    stage.style.left = (window.innerWidth - 960 * ratio) / 2 + "px";
-    stage.style.top = (window.innerHeight - 540 * ratio) / 2 + "px";
+    const viewport = fitTvViewport(window.innerWidth, window.innerHeight);
+    stage.style.setProperty("--tv-logical-width", TV_LOGICAL_WIDTH + "px");
+    stage.style.setProperty("--tv-logical-height", TV_LOGICAL_HEIGHT + "px");
+    stage.style.transform = "scale(" + viewport.scale + ")";
+    stage.style.left = viewport.left + "px";
+    stage.style.top = viewport.top + "px";
   }
   function setRail(open) {
     rail.classList.toggle("open", open);
-    element("tv-background").style.left = rail.offsetWidth + "px";
+    const viewport = fitTvViewport(window.innerWidth, window.innerHeight);
+    stage.style.setProperty(
+      "--tv-rail-width",
+      rail.getBoundingClientRect().width / viewport.scale + "px"
+    );
   }
   function makeText(parent, tag, text, className = "") {
     const node = document.createElement(tag);
@@ -1239,6 +1257,22 @@
   function selectedButton() {
     return element(restoreFocus);
   }
+  function revealCardFocus(button) {
+    const viewport = fitTvViewport(window.innerWidth, window.innerHeight);
+    const clearance = 12 * viewport.scale;
+    const bounds = button.getBoundingClientRect();
+    const mainBounds = main.getBoundingClientRect();
+    if (bounds.bottom > mainBounds.bottom - clearance)
+      main.scrollTop += (bounds.bottom - mainBounds.bottom + clearance) / viewport.scale;
+    else if (bounds.top < mainBounds.top + clearance)
+      main.scrollTop += (bounds.top - mainBounds.top - clearance) / viewport.scale;
+    const row = button.parentElement;
+    const rowBounds = row.getBoundingClientRect();
+    if (bounds.right > rowBounds.right - clearance)
+      row.scrollLeft += (bounds.right - rowBounds.right + clearance) / viewport.scale;
+    else if (bounds.left < rowBounds.left + clearance)
+      row.scrollLeft += (bounds.left - rowBounds.left - clearance) / viewport.scale;
+  }
   function focusContent() {
     setRail(false);
     const identifier = focus.row === 0 ? "tv-hero-action" : "tv-card-" + focus.row + "-" + focus.column;
@@ -1253,6 +1287,7 @@
     button.focus();
     button.scrollIntoView({ block: "nearest", inline: "nearest" });
     if (focus.row === 0) main.scrollTop = 0;
+    else revealCardFocus(button);
   }
   function focusMenu() {
     setRail(true);
@@ -1294,7 +1329,7 @@
       "p",
       "Home Android TV \xB7 prototipo P03. Le immagini sono placeholder espliciti."
     );
-    makeText(overlay, "p", "Build 0.1.7-dev.2-dev-metadata+9008331b3ff6");
+    makeText(overlay, "p", "Build 0.1.7-dev.3-dev-metadata+5984617bbe85");
     makeButton(
       overlay,
       "tv-source-fixture",
@@ -1686,6 +1721,7 @@
   window.addEventListener("pageshow", startRotation);
   startRotation();
   scale();
+  setRail(false);
   setupCatalog();
   setStatus();
   void load("home");
