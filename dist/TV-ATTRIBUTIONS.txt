@@ -8,3 +8,6 @@ The full Apache-2.0 text is distributed as Apache-2.0.txt.
 No upstream promotional image, logo, poster, backdrop or font is distributed.
 Graphic placeholders are original to this prototype.
 No general license is assigned to the remainder of StreamFlixBrew.
+
+P03.1: movie/show content, seasons and episode TV layouts and focus translated
+from the same reference revision. Placeholders remain original; no new artwork.

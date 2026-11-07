@@ -1146,6 +1146,398 @@
     };
   }
 
+  // src/tv/details.ts
+  function detailMetadata(detail2) {
+    var _a, _b;
+    return [
+      "\u2605 " + (detail2.rating === void 0 ? "N/A" : detail2.rating.toFixed(1)),
+      (_a = detail2.quality) == null ? void 0 : _a.toUpperCase(),
+      (_b = detail2.released) == null ? void 0 : _b.slice(0, 4),
+      detail2.runtimeMinutes === void 0 ? void 0 : detail2.runtimeMinutes >= 60 ? Math.floor(detail2.runtimeMinutes / 60) + " h " + detail2.runtimeMinutes % 60 + " min" : detail2.runtimeMinutes + " min"
+    ].filter((value) => value !== void 0 && value !== "");
+  }
+  function moveDetailFocus(rows, identifier, direction) {
+    var _a, _b;
+    const rowIndex = rows.findIndex((row) => row.includes(identifier));
+    if (rowIndex < 0) return (_a = rows[0]) == null ? void 0 : _a[0];
+    const columnIndex = rows[rowIndex].indexOf(identifier);
+    const nextRowIndex = Math.max(
+      0,
+      Math.min(
+        rows.length - 1,
+        rowIndex + (direction === "up" ? -1 : direction === "down" ? 1 : 0)
+      )
+    );
+    const nextColumnIndex = nextRowIndex === rowIndex ? Math.max(
+      0,
+      Math.min(
+        rows[rowIndex].length - 1,
+        columnIndex + (direction === "left" ? -1 : direction === "right" ? 1 : 0)
+      )
+    ) : Math.min(columnIndex, rows[nextRowIndex].length - 1);
+    return (_b = rows[nextRowIndex]) == null ? void 0 : _b[nextColumnIndex];
+  }
+  var TvDetails = class {
+    constructor(surface, catalog2, close) {
+      this.surface = surface;
+      this.catalog = catalog2;
+      this.close = close;
+      this.rows = [];
+      this.history = [];
+      this.requestSequence = 0;
+      this.disposed = false;
+    }
+    dispose() {
+      this.disposed = true;
+      this.cancel();
+      this.history = [];
+      this.surface.classList.remove("tv-details");
+      Object.keys(this.surface.dataset).forEach(
+        (key) => delete this.surface.dataset[key]
+      );
+    }
+    cancel() {
+      var _a;
+      this.requestSequence++;
+      (_a = this.requestController) == null ? void 0 : _a.abort();
+      this.requestController = void 0;
+    }
+    text(parent, tag, value, className = "") {
+      const node = document.createElement(tag);
+      node.textContent = value;
+      node.className = className;
+      parent.appendChild(node);
+      return node;
+    }
+    button(parent, identifier, label, action, className = "tv-action") {
+      const button = this.text(
+        parent,
+        "button",
+        label,
+        className
+      );
+      button.id = identifier;
+      button.tabIndex = -1;
+      button.addEventListener("click", action);
+      button.addEventListener("focus", () => this.reveal(button));
+      return button;
+    }
+    clear() {
+      this.surface.textContent = "";
+      this.surface.scrollTop = 0;
+      this.surface.classList.add("tv-details");
+      this.rows = [];
+    }
+    save() {
+      var _a;
+      this.history.push({
+        nodes: Array.from(this.surface.childNodes),
+        attributes: { ...this.surface.dataset },
+        rows: this.rows,
+        focusId: ((_a = document.activeElement) == null ? void 0 : _a.id) || "tv-overlay-back",
+        scrollTop: this.surface.scrollTop,
+        scrollPositions: Array.from(
+          this.surface.querySelectorAll(".detail-horizontal")
+        ).map((node) => [node, node.scrollLeft, node.scrollTop])
+      });
+    }
+    back() {
+      this.cancel();
+      const previous = this.history.pop();
+      if (!previous) {
+        this.close();
+        return;
+      }
+      this.surface.textContent = "";
+      Object.keys(this.surface.dataset).forEach(
+        (key) => delete this.surface.dataset[key]
+      );
+      Object.assign(this.surface.dataset, previous.attributes);
+      previous.nodes.forEach((node) => this.surface.appendChild(node));
+      this.rows = previous.rows;
+      const button = document.getElementById(previous.focusId);
+      button == null ? void 0 : button.focus({ preventScroll: true });
+      previous.scrollPositions.forEach(([node, left, top]) => {
+        node.scrollLeft = left;
+        node.scrollTop = top;
+      });
+      this.surface.scrollTop = previous.scrollTop;
+    }
+    move(direction) {
+      var _a, _b;
+      const identifier = moveDetailFocus(
+        this.rows,
+        ((_a = document.activeElement) == null ? void 0 : _a.id) || "",
+        direction
+      );
+      if (identifier)
+        (_b = document.getElementById(identifier)) == null ? void 0 : _b.focus({ preventScroll: true });
+    }
+    reveal(button) {
+      const scale2 = this.surface.getBoundingClientRect().height / this.surface.clientHeight;
+      const clearance = 24 * scale2;
+      const bounds = button.getBoundingClientRect();
+      const viewport = this.surface.getBoundingClientRect();
+      if (bounds.bottom > viewport.bottom - clearance)
+        this.surface.scrollTop += (bounds.bottom - viewport.bottom + clearance) / scale2;
+      else if (bounds.top < viewport.top + clearance)
+        this.surface.scrollTop += (bounds.top - viewport.top - clearance) / scale2;
+      const row = button.closest(".detail-horizontal");
+      if (row) {
+        const rowBounds = row.getBoundingClientRect();
+        if (bounds.right > rowBounds.right - clearance)
+          row.scrollLeft += (bounds.right - rowBounds.right + clearance) / scale2;
+        else if (bounds.left < rowBounds.left + clearance)
+          row.scrollLeft += (bounds.left - rowBounds.left - clearance) / scale2;
+      }
+    }
+    backButton(parent = this.surface) {
+      this.button(parent, "tv-overlay-back", "Indietro", () => this.back());
+      this.rows.push(["tv-overlay-back"]);
+    }
+    render(detail2) {
+      var _a;
+      this.clear();
+      this.surface.dataset.contentId = detail2.id;
+      this.surface.dataset.contentKind = detail2.kind;
+      this.text(
+        this.surface,
+        "span",
+        "SFONDO NON DISPONIBILE",
+        "detail-backdrop-label"
+      );
+      const header = this.text(this.surface, "section", "", "detail-header");
+      const poster = this.text(
+        header,
+        "div",
+        "POSTER NON DISPONIBILE",
+        "detail-poster"
+      );
+      poster.setAttribute("role", "img");
+      poster.setAttribute("aria-label", "Placeholder poster");
+      const information = this.text(header, "div", "", "detail-information");
+      this.text(information, "h1", detail2.title);
+      const metadata2 = this.text(information, "div", "", "detail-metadata");
+      detailMetadata(detail2).forEach(
+        (value) => this.text(metadata2, "span", value)
+      );
+      if (detail2.genres.length)
+        this.text(
+          information,
+          "p",
+          detail2.genres.map((genre) => genre.name).join(", "),
+          "detail-genres"
+        );
+      this.text(
+        information,
+        "p",
+        detail2.overview || "Descrizione non disponibile.",
+        "detail-overview"
+      );
+      const actions = this.text(information, "div", "", "detail-actions");
+      this.button(
+        actions,
+        "tv-detail-watch",
+        "Guarda ora",
+        () => this.unavailable("Riproduzione VOD non disponibile in P03.1.")
+      );
+      this.button(
+        actions,
+        "tv-detail-trailer",
+        "Trailer",
+        () => this.unavailable("Trailer non disponibile in P03.1.")
+      );
+      this.button(
+        actions,
+        "tv-detail-favorite",
+        "Preferiti",
+        () => this.unavailable("Preferiti non ancora portati.")
+      );
+      actions.querySelectorAll("button").forEach((button) => {
+        this.text(button, "small", "Non disponibile", "detail-unavailable-label");
+      });
+      this.rows.push([
+        "tv-detail-watch",
+        "tv-detail-trailer",
+        "tv-detail-favorite"
+      ]);
+      if (detail2.kind === "tv-show") {
+        const section = this.text(this.surface, "section", "", "detail-seasons");
+        this.text(section, "h2", "Stagioni");
+        const seasons = detail2.seasons || [];
+        if (!seasons.length)
+          this.text(
+            section,
+            "p",
+            "Nessuna stagione disponibile nei dati ricevuti.",
+            "detail-empty"
+          );
+        else {
+          const row = this.text(
+            section,
+            "div",
+            "",
+            "detail-horizontal season-cards"
+          );
+          this.rows.push(
+            seasons.map((season, index) => {
+              const identifier = "tv-season-" + index;
+              const button = this.button(
+                row,
+                identifier,
+                "",
+                () => void this.openSeason(season),
+                "season-card"
+              );
+              button.dataset.seasonId = season.id;
+              this.text(
+                button,
+                "span",
+                "POSTER NON DISPONIBILE",
+                "season-poster"
+              );
+              this.text(
+                button,
+                "span",
+                season.title || "Stagione " + season.number,
+                "season-title"
+              );
+              return identifier;
+            })
+          );
+        }
+      }
+      if (detail2.directors.length)
+        this.text(
+          this.surface,
+          "p",
+          "Regia: " + detail2.directors.map((person) => person.name).join(", "),
+          "detail-extra"
+        );
+      if (detail2.cast.length)
+        this.text(
+          this.surface,
+          "p",
+          "Cast: " + detail2.cast.map((person) => person.name).join(", "),
+          "detail-extra"
+        );
+      this.backButton();
+      (_a = document.getElementById("tv-detail-watch")) == null ? void 0 : _a.focus({ preventScroll: true });
+    }
+    unavailable(message, episode) {
+      var _a;
+      this.save();
+      this.clear();
+      this.text(
+        this.surface,
+        "h1",
+        (episode == null ? void 0 : episode.title) || "Funzionalit\xE0 non disponibile",
+        "detail-notice-title"
+      );
+      if (episode) {
+        this.surface.dataset.episodeId = episode.id;
+        this.text(
+          this.surface,
+          "p",
+          "Episodio " + episode.number,
+          "detail-extra"
+        );
+      }
+      this.text(this.surface, "p", message, "detail-extra");
+      this.backButton();
+      (_a = document.getElementById("tv-overlay-back")) == null ? void 0 : _a.focus();
+    }
+    async openSeason(season) {
+      var _a, _b, _c;
+      this.save();
+      this.clear();
+      this.surface.dataset.seasonId = season.id;
+      this.text(
+        this.surface,
+        "h1",
+        season.title || "Stagione " + season.number,
+        "season-heading"
+      );
+      const body = this.text(
+        this.surface,
+        "div",
+        "Caricamento episodi\u2026 Back annulla.",
+        "episode-body"
+      );
+      this.backButton();
+      (_a = document.getElementById("tv-overlay-back")) == null ? void 0 : _a.focus({ preventScroll: true });
+      this.cancel();
+      const sequence = this.requestSequence;
+      const controller = new AbortController();
+      this.requestController = controller;
+      const result = await this.catalog.episodes(
+        season,
+        { kind: "number", number: 1 },
+        { signal: controller.signal }
+      );
+      if (this.disposed || sequence !== this.requestSequence) return;
+      this.requestController = void 0;
+      body.textContent = "";
+      if (!result.ok) {
+        this.text(
+          body,
+          "p",
+          result.error.code + ": " + result.error.message,
+          "detail-error"
+        );
+        this.button(body, "tv-episodes-retry", "Riprova", () => {
+          this.back();
+          void this.openSeason(season);
+        });
+        this.rows = [["tv-episodes-retry"], ["tv-overlay-back"]];
+        (_b = document.getElementById("tv-episodes-retry")) == null ? void 0 : _b.focus();
+      } else if (!result.value.items.length)
+        this.text(
+          body,
+          "p",
+          "Nessun episodio incluso nei dati ricevuti.",
+          "detail-empty"
+        );
+      else {
+        const row = this.text(body, "div", "", "detail-horizontal episode-cards");
+        const identifiers = result.value.items.map((episode, index) => {
+          const identifier = "tv-episode-" + index;
+          const button = this.button(
+            row,
+            identifier,
+            "",
+            () => this.unavailable(
+              "Riproduzione VOD non disponibile in P03.1. Nessun resolver viene chiamato.",
+              episode
+            ),
+            "episode-card"
+          );
+          button.dataset.episodeId = episode.id;
+          this.text(
+            button,
+            "span",
+            "ANTEPRIMA NON DISPONIBILE",
+            "episode-poster"
+          );
+          this.text(button, "span", "Episodio " + episode.number, "episode-info");
+          this.text(
+            button,
+            "span",
+            episode.title || "Episodio " + episode.number,
+            "episode-title"
+          );
+          if (episode.released)
+            this.text(button, "span", episode.released, "episode-released");
+          if (episode.overview)
+            this.text(button, "span", episode.overview, "episode-overview");
+          return identifier;
+        });
+        this.rows = [identifiers, ["tv-overlay-back"]];
+        (_c = document.getElementById(identifiers[0])) == null ? void 0 : _c.focus({ preventScroll: true });
+      }
+    }
+  };
+
   // src/tv/model.ts
   function homeProjection(categories2) {
     var _a;
@@ -1190,6 +1582,7 @@
     { id: "favorites", label: "Preferiti", icon: "favorites" },
     { id: "settings", label: "Impostazioni", icon: "settings" }
   ];
+  var detailsView;
   var source = "fixture";
   var catalog;
   var categories = [];
@@ -1204,7 +1597,7 @@
   var lastRotation = Date.now();
   function setStatus(message = "") {
     status.textContent = "P03 \xB7 " + (source === "fixture" ? "FIXTURE SINTETICHE" : import_catalog_metadata5.LIVE_APPROVED ? "SOLO SVILUPPO \xB7 LIVE" : "SERVIZIO LIVE BLOCCATO") + (message ? " \xB7 " + message : "");
-    status.title = "0.1.7-dev.3-dev-metadata+5984617bbe85";
+    status.title = "0.1.7-dev.4-dev-metadata+7d83de58a3d6";
   }
   function setupCatalog() {
     const registry = new ProviderRegistry();
@@ -1299,6 +1692,8 @@
   }
   function closeOverlay() {
     cancel();
+    detailsView == null ? void 0 : detailsView.dispose();
+    detailsView = void 0;
     overlay.hidden = true;
     overlay.textContent = "";
     const button = selectedButton();
@@ -1309,6 +1704,8 @@
     setStatus();
   }
   function openOverlay(title) {
+    detailsView == null ? void 0 : detailsView.dispose();
+    detailsView = void 0;
     rememberFocus();
     const wasLoading = isLoading;
     cancel();
@@ -1329,7 +1726,7 @@
       "p",
       "Home Android TV \xB7 prototipo P03. Le immagini sono placeholder espliciti."
     );
-    makeText(overlay, "p", "Build 0.1.7-dev.3-dev-metadata+5984617bbe85");
+    makeText(overlay, "p", "Build 0.1.7-dev.4-dev-metadata+7d83de58a3d6");
     makeButton(
       overlay,
       "tv-source-fixture",
@@ -1509,7 +1906,6 @@
     });
   }
   async function detail(item) {
-    var _a;
     openOverlay("Caricamento dettagli\u2026");
     const heading = overlay.querySelector("h1");
     const sequence = requestSequence;
@@ -1526,23 +1922,8 @@
       setStatus(result.error.message);
       return;
     }
-    heading.textContent = result.value.title;
-    makeText(overlay, "p", metadata(result.value));
-    makeText(
-      overlay,
-      "p",
-      result.value.overview || "Descrizione non disponibile."
-    );
-    makeText(
-      overlay,
-      "p",
-      result.value.kind === "tv-show" ? "Serie TV \xB7 " + (((_a = result.value.seasons) == null ? void 0 : _a.length) || 0) + " stagioni incluse nel dettaglio" : "Film"
-    );
-    makeText(
-      overlay,
-      "p",
-      "Dettagli provvisori. Riproduzione non disponibile in questo prototipo."
-    );
+    detailsView = new TvDetails(overlay, catalog, closeOverlay);
+    detailsView.render(result.value);
     setStatus();
   }
   function activateDestination(identifier) {
@@ -1568,7 +1949,8 @@
   }
   function back() {
     if (!overlay.hidden) {
-      closeOverlay();
+      if (detailsView) detailsView.back();
+      else closeOverlay();
       return;
     }
     if (isLoading) {
@@ -1595,6 +1977,10 @@
   function move(action) {
     var _a, _b;
     if (!overlay.hidden) {
+      if (detailsView) {
+        detailsView.move(action);
+        return;
+      }
       const buttons = Array.from(overlay.querySelectorAll("button"));
       const index = buttons.indexOf(document.activeElement);
       (_a = buttons[Math.max(
@@ -1677,13 +2063,15 @@
   });
   window.addEventListener("resize", scale);
   window.addEventListener("pagehide", () => {
-    cancel();
+    if (!overlay.hidden) closeOverlay();
+    else cancel();
     stopRotation();
   });
   document.addEventListener("visibilitychange", () => {
     lastRotation = Date.now();
     if (document.hidden) stopRotation();
     else startRotation();
+    if (document.hidden && detailsView) closeOverlay();
     if (document.hidden && requestController) {
       if (!overlay.hidden) {
         closeOverlay();
