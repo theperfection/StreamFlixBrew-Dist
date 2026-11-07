@@ -584,6 +584,82 @@ var require_catalog_handler = __commonJS({
   }
 });
 
+// service/stream-policy.cjs
+var require_stream_policy = __commonJS({
+  "service/stream-policy.cjs": function(exports2) {
+    "use strict";
+    var STREAM_LIVE_APPROVED = false;
+    function invalid() {
+      throw new Error("INVALID_REQUEST");
+    }
+    function positive(value) {
+      return typeof value === "string" && /^[1-9][0-9]{0,9}$/.test(value);
+    }
+    function targetKey(target) {
+      if (!target || typeof target !== "object" || Array.isArray(target) || typeof target.title !== "string" || !/^[1-9][0-9]{0,9}-[a-z0-9]+(?:-[a-z0-9]+)*$/.test(target.title || "") || target.title.length > 180)
+        invalid();
+      if (target.kind === "movie") {
+        if (Object.keys(target).sort().join(",") !== "kind,title") invalid();
+        return "movie:" + target.title;
+      }
+      if (target.kind !== "episode" || Object.keys(target).sort().join(",") !== "episode,episodeNumber,kind,seasonId,seasonNumber,title" || !positive(target.episode) || !positive(target.seasonId) || !positive(target.seasonNumber) || !positive(target.episodeNumber))
+        invalid();
+      return [
+        "episode",
+        target.title,
+        target.seasonId,
+        target.seasonNumber,
+        target.episode,
+        target.episodeNumber
+      ].join(":");
+    }
+    function parseRoute(path) {
+      if (typeof path !== "string" || path.length > 700 || /[\s#\\]/.test(path))
+        invalid();
+      var pieces = path.split("?"), operation = pieces[0] === "/stream/servers" ? "servers" : pieces[0] === "/stream/resolve" ? "resolve" : "";
+      if (!operation || pieces.length !== 2) invalid();
+      var parameters = /* @__PURE__ */ Object.create(null);
+      pieces[1].split("&").forEach(function(pair) {
+        var parts = pair.split("=");
+        if (parts.length !== 2 || !/^[a-zA-Z]+$/.test(parts[0]) || Object.prototype.hasOwnProperty.call(parameters, parts[0]))
+          invalid();
+        parameters[parts[0]] = decodeURIComponent(parts[1]);
+      });
+      var server;
+      if (operation === "resolve") {
+        server = parameters.server;
+        if (server !== "vixcloud" && server !== "vixsrc") invalid();
+        delete parameters.server;
+      }
+      targetKey(parameters);
+      return { operation: operation, target: parameters, server: server };
+    }
+    exports2.STREAM_LIVE_APPROVED = STREAM_LIVE_APPROVED;
+    exports2.targetKey = targetKey;
+    exports2.parseRoute = parseRoute;
+    exports2.handle = function(request, response, reply) {
+      try {
+        parseRoute(request.url);
+      } catch (invalidRequestError) {
+        void invalidRequestError;
+        reply(
+          response,
+          400,
+          { protocol: "p027-v1", ok: false, error: "INVALID_REQUEST" },
+          true
+        );
+        return;
+      }
+      reply(
+        response,
+        403,
+        { protocol: "p027-v1", ok: false, error: "STREAM_ACCESS_RESTRICTED" },
+        true
+      );
+    };
+  }
+});
+
 // service/local-diagnostic.cjs
 (function() {
   "use strict";
@@ -720,12 +796,13 @@ var require_catalog_handler = __commonJS({
     }
   }
   var catalog = require_catalog_handler()(https, reply);
+  var streamPolicy = require_stream_policy();
   var server = http.createServer(function(request, response) {
     if (request.headers.host !== "127.0.0.1:" + port || request.headers.origin !== origin) {
       error(response, 403, "ORIGIN_OR_HOST", false);
       return;
     }
-    if (request.url !== "/health" && request.url !== "/probe" && request.url.indexOf("/catalog/") !== 0) {
+    if (request.url !== "/health" && request.url !== "/probe" && request.url.indexOf("/catalog/") !== 0 && request.url.indexOf("/stream/") !== 0) {
       error(response, 404, "PATH_NOT_ALLOWED", true);
       return;
     }
@@ -760,6 +837,10 @@ var require_catalog_handler = __commonJS({
         },
         true
       );
+      return;
+    }
+    if (request.url.indexOf("/stream/") === 0) {
+      streamPolicy.handle(request, response, reply);
       return;
     }
     if (request.url.indexOf("/catalog/") === 0) {

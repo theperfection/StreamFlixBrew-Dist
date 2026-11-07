@@ -35,3 +35,12 @@ o sull'accesso alla sorgente dei metadati.
 Le fixture dimostrative incluse sono interamente sintetiche; nessuna cattura HTTP,
 registrazione di sessione, immagine o contenuto audiovisivo di terzi è incluso.
 Nessuna licenza generale è assegnata al modulo.
+
+
+P02.7 server / extractor data contracts
+Reference snapshot: 969eb549d63adf02944b614147f5a7f01a033218, Apache-2.0.
+Original Streamflix: Lory-Stan TANASI; Reborn: Independent Developer.
+Independent data-only interpretation, no Kotlin/Android library imported.
+Live server/embed operations remain blocked; no third-party media included.
+
+P03 Android TV UI attribution and vector conversion details: TV-ATTRIBUTIONS.txt.

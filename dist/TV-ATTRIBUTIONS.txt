@@ -1,0 +1,10 @@
+StreamFlix Android TV UI port, P03.0
+Reference: streamflix-reborn2/streamflix, commit 9060f60eaef18f8c2fe1360f71af679e81d35048.
+Original Streamflix: Lory-Stan TANASI; Reborn maintenance: Independent Developer.
+Upstream source licensed under Apache License 2.0; no NOTICE found.
+Modifications: TV XML geometry/theme/focus translated to HTML/CSS/TypeScript;
+six monochrome menu vectors converted from Android pathData to SVG.
+The full Apache-2.0 text is distributed as Apache-2.0.txt.
+No upstream promotional image, logo, poster, backdrop or font is distributed.
+Graphic placeholders are original to this prototype.
+No general license is assigned to the remainder of StreamFlixBrew.

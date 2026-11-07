@@ -1,0 +1,54 @@
+<!doctype html>
+<html lang="it">
+  <head>
+    <meta charset="utf-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1" />
+    <title>StreamFlixBrew — Home Android TV P03</title>
+    <link rel="stylesheet" href="./tv.css" />
+  </head>
+  <body>
+    <div id="tv-stage">
+      <aside id="tv-rail" aria-label="Menu principale">
+        <div class="header">
+          <button
+            id="tv-provider"
+            class="header-button"
+            aria-label="Sorgente e strumenti del prototipo"
+          >
+            <span class="avatar" aria-hidden="true">SC</span
+            ><span class="rail-label"
+              >StreamingCommunity IT<small>Sorgente e strumenti</small></span
+            >
+          </button>
+          <div class="header-divider"></div>
+          <button
+            id="tv-profile"
+            class="header-button"
+            aria-label="Profilo non disponibile"
+          >
+            <span class="avatar" aria-hidden="true">D</span
+            ><span class="rail-label"
+              >Profilo dimostrativo<small>Profili non portati</small></span
+            >
+          </button>
+        </div>
+        <nav id="tv-menu" aria-label="Schermate Android TV"></nav>
+      </aside>
+      <main id="tv-main" aria-label="Catalogo">
+        <div id="tv-background" aria-hidden="true">
+          <span>SFONDO NON DISPONIBILE</span>
+        </div>
+        <div id="tv-content"></div>
+      </main>
+      <output id="tv-status" aria-live="polite"></output>
+      <section
+        id="tv-overlay"
+        role="dialog"
+        aria-modal="true"
+        aria-label="Dettagli e strumenti"
+        hidden
+      ></section>
+    </div>
+    <script src="./tv.js"></script>
+  </body>
+</html>

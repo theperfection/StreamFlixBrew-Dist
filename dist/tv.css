@@ -1,0 +1,351 @@
+/* Port of Streamflix 9060f60e TV XML dimensions. Logical dp canvas: see P03 analysis. */
+* {
+  box-sizing: border-box;
+}
+html,
+body {
+  margin: 0;
+  width: 100%;
+  height: 100%;
+  overflow: hidden;
+  background: #181818;
+  color: #fff;
+  font-family: Roboto, Arial, sans-serif;
+}
+button {
+  font: inherit;
+  cursor: default;
+  color: inherit;
+  border: 0;
+  padding: 0;
+  background: none;
+}
+button:focus {
+  outline: none;
+}
+#tv-stage {
+  position: absolute;
+  width: 960px;
+  height: 540px;
+  transform-origin: top left;
+  display: flex;
+  background: #181818;
+  font-size: 14px;
+}
+#tv-rail {
+  flex: none;
+  width: 64px;
+  padding: 0 10px;
+  position: relative;
+  background: #181818;
+  z-index: 2;
+}
+#tv-rail.open {
+  width: auto;
+}
+.header {
+  margin-top: 16px;
+  padding: 10px;
+}
+.header-button {
+  display: flex;
+  align-items: center;
+  text-align: left;
+  white-space: nowrap;
+  width: 100%;
+}
+.avatar {
+  display: inline-flex;
+  width: 24px;
+  height: 24px;
+  align-items: center;
+  justify-content: center;
+  font-size: 9px;
+  flex: none;
+  background: #303030;
+}
+.header-button:focus .avatar {
+  outline: 2px solid #fff;
+}
+.header-button .rail-label {
+  margin-left: 8px;
+  padding-right: 10px;
+  font-size: 13px;
+}
+.rail-label {
+  display: none;
+}
+.open .rail-label {
+  display: block;
+}
+.rail-label small {
+  display: block;
+  font-size: 9px;
+  color: rgba(255, 255, 255, 0.7);
+  margin-top: 2px;
+}
+.header-divider {
+  height: 1px;
+  background: rgba(255, 255, 255, 0.2);
+  margin: 12px 0 8px;
+}
+#tv-menu {
+  position: absolute;
+  top: 50%;
+  left: 10px;
+  right: 10px;
+  transform: translateY(-50%);
+}
+.menu-item {
+  display: flex;
+  align-items: center;
+  width: 100%;
+  padding: 10px;
+  text-align: left;
+  color: #bdbdbd;
+  margin-bottom: 8px;
+  border-radius: 2px;
+  height: 44px;
+}
+.menu-item img {
+  width: 24px;
+  height: 24px;
+  opacity: 0.74;
+  flex: none;
+}
+.menu-item .rail-label {
+  margin-left: 10px;
+  padding-right: 10px;
+  font-size: 14px;
+}
+.menu-item[aria-current="page"] {
+  background: rgba(255, 255, 255, 0.08);
+  outline: 1px solid #fff;
+  color: #fff;
+}
+.menu-item:focus {
+  background: rgba(255, 255, 255, 0.15);
+  outline: 2px solid #fff;
+  color: #fff;
+}
+.menu-item:focus img,
+.menu-item[aria-current="page"] img {
+  opacity: 1;
+}
+#tv-main {
+  flex: 1;
+  min-width: 0;
+  overflow-y: auto;
+  position: relative;
+  padding: 16px 0;
+  scrollbar-width: none;
+}
+#tv-main::-webkit-scrollbar,
+.cards::-webkit-scrollbar {
+  display: none;
+}
+#tv-background {
+  position: fixed;
+  top: 0;
+  left: 64px;
+  right: 0;
+  height: 540px;
+  pointer-events: none;
+  background: linear-gradient(90deg, #181818, transparent 50%), #1b1b1b;
+}
+#tv-background span {
+  position: absolute;
+  top: 200px;
+  right: 70px;
+  color: #555;
+  font-size: 10px;
+}
+#tv-content {
+  position: relative;
+  min-height: 100%;
+}
+.hero {
+  position: relative;
+  padding-top: 32px;
+  padding-bottom: 50px;
+  margin-bottom: 20px;
+}
+.hero-label {
+  margin: 0 70px;
+  height: 24px;
+  font-size: 20px;
+  font-weight: bold;
+}
+.hero h1 {
+  font-weight: normal;
+  font-size: 40px;
+  line-height: 48px;
+  height: 48px;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+  margin: 20px 50px 0 70px;
+}
+.hero-meta {
+  margin: 10px 70px 0;
+  min-height: 17px;
+  line-height: 17px;
+}
+.hero-meta span {
+  margin-right: 25px;
+}
+.hero-overview {
+  margin: 30px 0 0 70px;
+  width: calc(45% - 70px);
+  height: 85px;
+  line-height: 17px;
+  overflow: hidden;
+  display: -webkit-box;
+  -webkit-line-clamp: 5;
+  -webkit-box-orient: vertical;
+}
+.tv-action {
+  border-radius: 360px;
+  padding: 6px 16px;
+  background: rgba(128, 128, 128, 0.5);
+  font-size: 16px;
+  color: #c6c6c6;
+}
+.tv-action:focus {
+  color: #000;
+  background: #fff;
+}
+.hero .tv-action {
+  margin: 30px 0 0 70px;
+  font-size: 18px;
+}
+.hero-dots {
+  position: absolute;
+  left: 50%;
+  bottom: 56px;
+  display: flex;
+}
+.hero-dots span {
+  display: block;
+  width: 7.5px;
+  height: 7.5px;
+  margin: 0 5px;
+  background: #666;
+  border-radius: 50%;
+}
+.hero-dots .selected {
+  background: #fff;
+}
+.category {
+  margin-bottom: 20px;
+}
+.category h2 {
+  margin: 0 70px;
+  font-size: 20px;
+  line-height: 24px;
+  font-weight: bold;
+}
+.cards {
+  display: flex;
+  overflow-x: auto;
+  padding: 8px 70px 12px;
+  margin-top: 8px;
+  scrollbar-width: none;
+}
+.card {
+  flex: none;
+  width: 133.33333px;
+  text-align: left;
+  margin-right: 10px;
+  transition: transform 300ms;
+  transform-origin: center;
+  align-self: flex-start;
+}
+.card:focus {
+  outline: 3px solid #fff;
+  transform: scale(1.05);
+}
+.poster {
+  height: 200px;
+  width: 100%;
+  background: #2b2b2b;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  flex-direction: column;
+  color: #aaa;
+  text-align: center;
+}
+.poster small {
+  font-size: 9px;
+  margin-top: 10px;
+  max-width: 110px;
+}
+.card-meta {
+  margin: 8px 8px 0;
+  height: 17px;
+  line-height: 17px;
+  white-space: nowrap;
+  overflow: hidden;
+}
+.card-meta:empty {
+  display: none;
+}
+.card-title {
+  display: -webkit-box;
+  -webkit-line-clamp: 2;
+  -webkit-box-orient: vertical;
+  height: 34px;
+  line-height: 17px;
+  margin: 2px 8px 8px;
+  overflow: hidden;
+  font-weight: bold;
+}
+#tv-status {
+  position: absolute;
+  right: 16px;
+  top: 10px;
+  color: #bdbdbd;
+  background: #181818;
+  font-size: 10px;
+  z-index: 3;
+  max-width: 650px;
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  pointer-events: none;
+}
+#tv-overlay {
+  position: absolute;
+  top: 0;
+  right: 0;
+  bottom: 0;
+  left: 64px;
+  z-index: 4;
+  background: #181818;
+  padding: 50px 70px;
+  overflow-y: auto;
+}
+#tv-overlay[hidden] {
+  display: none;
+}
+#tv-overlay h1 {
+  font-size: 40px;
+  font-weight: normal;
+  margin: 0 0 15px;
+}
+#tv-overlay p {
+  line-height: 1.5;
+  max-width: 650px;
+}
+#tv-overlay button {
+  margin: 12px 12px 12px 0;
+}
+.loading {
+  padding: 70px;
+}
+@media (prefers-reduced-motion: reduce) {
+  .card {
+    transition: none;
+  }
+}

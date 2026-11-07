@@ -34,7 +34,7 @@
   var require_catalog_metadata = __commonJS({
     "service/catalog-metadata.cjs"(exports) {
       "use strict";
-      var PROVIDER3 = "streamingcommunity-it";
+      var PROVIDER5 = "streamingcommunity-it";
       var HOST = "streamingunity.fun";
       var LIVE_APPROVED2 = true;
       function invalid() {
@@ -91,7 +91,7 @@
           html: input.op === "home" || input.op === "detail"
         };
       }
-      function parseRoute2(url) {
+      function parseRoute3(url) {
         if (typeof url !== "string" || url.length > 1800 || url.indexOf("/catalog/") !== 0 || /[#\r\n]/.test(url))
           invalid();
         var split = url.split("?");
@@ -118,7 +118,7 @@
         if (!validId(id + "-" + slug) || raw.type !== "movie" && raw.type !== "tv")
           invalid();
         var value = {
-          providerId: PROVIDER3,
+          providerId: PROVIDER5,
           id: id + "-" + slug,
           kind: raw.type === "movie" ? "movie" : "tv-show",
           title: text2(raw.name, 300, false)
@@ -243,7 +243,7 @@
                   invalid();
                 return {
                   id: identity(season.id),
-                  show: { providerId: PROVIDER3, id: title2.id, kind: "tv-show" },
+                  show: { providerId: PROVIDER5, id: title2.id, kind: "tv-show" },
                   number: integer(season.number, 0, 1e4),
                   title: text2(season.name, 300, true)
                 };
@@ -275,7 +275,7 @@
                   return {
                     id: identity(episode.id),
                     seasonId,
-                    show: { providerId: PROVIDER3, id: title2.id, kind: "tv-show" },
+                    show: { providerId: PROVIDER5, id: title2.id, kind: "tv-show" },
                     number: integer(episode.number, 0, 1e4),
                     title: text2(episode.name, 300, true),
                     overview: text2(episode.plot, 6e3, true)
@@ -310,7 +310,7 @@
       }
       function validateData2(value) {
         function raw(item) {
-          if (!object(item) || item.providerId !== PROVIDER3 || !validId(item.id) || item.kind !== "movie" && item.kind !== "tv-show")
+          if (!object(item) || item.providerId !== PROVIDER5 || !validId(item.id) || item.kind !== "movie" && item.kind !== "tv-show")
             invalid();
           var at = item.id.indexOf("-");
           return {
@@ -363,7 +363,7 @@
           var d = value.detail, r = raw(d), props = { locale: "it", title: r };
           if (r.type === "tv")
             r.seasons = list(d.seasons, 100).map(function(s) {
-              if (!object(s) || !object(s.show) || s.show.providerId !== PROVIDER3 || s.show.id !== d.id || s.show.kind !== "tv-show")
+              if (!object(s) || !object(s.show) || s.show.providerId !== PROVIDER5 || s.show.id !== d.id || s.show.kind !== "tv-show")
                 invalid();
               return { id: s.id, number: s.number, name: s.title };
             });
@@ -373,7 +373,7 @@
             props.loadedSeason = {
               id: loaded.id,
               episodes: list(loaded.episodes, 500).map(function(ep) {
-                if (!object(ep) || ep.seasonId !== loaded.id || !object(ep.show) || ep.show.providerId !== PROVIDER3 || ep.show.id !== d.id || ep.show.kind !== "tv-show")
+                if (!object(ep) || ep.seasonId !== loaded.id || !object(ep.show) || ep.show.providerId !== PROVIDER5 || ep.show.id !== d.id || ep.show.kind !== "tv-show")
                   invalid();
                 return {
                   id: ep.id,
@@ -393,12 +393,88 @@
         }
         invalid();
       }
-      exports.PROVIDER = PROVIDER3;
+      exports.PROVIDER = PROVIDER5;
       exports.LIVE_APPROVED = LIVE_APPROVED2;
       exports.requestDescriptor = requestDescriptor3;
-      exports.parseRoute = parseRoute2;
+      exports.parseRoute = parseRoute3;
       exports.parseMetadata = parseMetadata2;
       exports.validateData = validateData2;
+    }
+  });
+
+  // service/stream-policy.cjs
+  var require_stream_policy = __commonJS({
+    "service/stream-policy.cjs"(exports) {
+      "use strict";
+      var STREAM_LIVE_APPROVED = false;
+      function invalid() {
+        throw new Error("INVALID_REQUEST");
+      }
+      function positive(value) {
+        return typeof value === "string" && /^[1-9][0-9]{0,9}$/.test(value);
+      }
+      function targetKey2(target) {
+        if (!target || typeof target !== "object" || Array.isArray(target) || typeof target.title !== "string" || !/^[1-9][0-9]{0,9}-[a-z0-9]+(?:-[a-z0-9]+)*$/.test(target.title || "") || target.title.length > 180)
+          invalid();
+        if (target.kind === "movie") {
+          if (Object.keys(target).sort().join(",") !== "kind,title") invalid();
+          return "movie:" + target.title;
+        }
+        if (target.kind !== "episode" || Object.keys(target).sort().join(",") !== "episode,episodeNumber,kind,seasonId,seasonNumber,title" || !positive(target.episode) || !positive(target.seasonId) || !positive(target.seasonNumber) || !positive(target.episodeNumber))
+          invalid();
+        return [
+          "episode",
+          target.title,
+          target.seasonId,
+          target.seasonNumber,
+          target.episode,
+          target.episodeNumber
+        ].join(":");
+      }
+      function parseRoute3(path) {
+        if (typeof path !== "string" || path.length > 700 || /[\s#\\]/.test(path))
+          invalid();
+        var pieces = path.split("?"), operation = pieces[0] === "/stream/servers" ? "servers" : pieces[0] === "/stream/resolve" ? "resolve" : "";
+        if (!operation || pieces.length !== 2) invalid();
+        var parameters = /* @__PURE__ */ Object.create(null);
+        pieces[1].split("&").forEach(function(pair) {
+          var parts = pair.split("=");
+          if (parts.length !== 2 || !/^[a-zA-Z]+$/.test(parts[0]) || Object.prototype.hasOwnProperty.call(parameters, parts[0]))
+            invalid();
+          parameters[parts[0]] = decodeURIComponent(parts[1]);
+        });
+        var server;
+        if (operation === "resolve") {
+          server = parameters.server;
+          if (server !== "vixcloud" && server !== "vixsrc") invalid();
+          delete parameters.server;
+        }
+        targetKey2(parameters);
+        return { operation, target: parameters, server };
+      }
+      exports.STREAM_LIVE_APPROVED = STREAM_LIVE_APPROVED;
+      exports.targetKey = targetKey2;
+      exports.parseRoute = parseRoute3;
+      exports.handle = function(request, response, reply) {
+        try {
+          parseRoute3(request.url);
+        } catch (invalidRequestError) {
+          void invalidRequestError;
+          reply(
+            response,
+            400,
+            { protocol: "p027-v1", ok: false, error: "INVALID_REQUEST" },
+            true
+          );
+          return;
+        }
+        reply(
+          response,
+          403,
+          { protocol: "p027-v1", ok: false, error: "STREAM_ACCESS_RESTRICTED" },
+          true
+        );
+      };
     }
   });
 
@@ -608,13 +684,89 @@
       return Array.from(this.providers.values());
     }
   };
+  var ExtractorRegistry = class {
+    constructor() {
+      this.extractors = /* @__PURE__ */ new Map();
+    }
+    register(extractor) {
+      if (!extractor.id.trim() || !extractor.hosts.length || extractor.hosts.some(
+        (host) => !host || host !== host.toLowerCase() || /[:/\s]/.test(host)
+      ))
+        return failure(
+          "invalid-data",
+          "Extractor requires normalized exact hosts"
+        );
+      if (this.extractors.has(extractor.id))
+        return failure("ambiguous", "Duplicate extractor ID");
+      this.extractors.set(extractor.id, extractor);
+      return success(extractor);
+    }
+    select(resource, id) {
+      let host;
+      try {
+        const url = new URL(resource.url);
+        if (!["http:", "https:"].includes(url.protocol) || url.username || url.password)
+          return failure("invalid-data", "Invalid extractor URL");
+        host = url.hostname;
+      } catch {
+        return failure("invalid-data", "Invalid extractor URL");
+      }
+      const matches = Array.from(this.extractors.values()).filter(
+        (extractor) => (!id || extractor.id === id) && extractor.hosts.includes(host)
+      );
+      return matches.length === 1 ? success(matches[0]) : failure(
+        matches.length ? "ambiguous" : "unsupported",
+        "No unique extractor for exact host"
+      );
+    }
+  };
 
   // src/catalog/provider.ts
+  var import_catalog_metadata2 = __toESM(require_catalog_metadata(), 1);
+
+  // src/resolution/identity.ts
   var import_catalog_metadata = __toESM(require_catalog_metadata(), 1);
+  var import_stream_policy = __toESM(require_stream_policy(), 1);
+  function playableIdentity(target) {
+    if (target.kind === "live") throw new Error("Live unsupported");
+    const content = target.kind === "episode" ? target.episode.show : target.content;
+    if (content.providerId !== import_catalog_metadata.PROVIDER || (target.kind === "movie" ? content.kind !== "movie" : target.kind !== "episode" || content.kind !== "tv-show"))
+      throw new Error("Invalid playable");
+    const identity = target.kind === "movie" ? { kind: "movie", title: content.id } : {
+      kind: "episode",
+      title: content.id,
+      episode: target.episode.id,
+      seasonId: target.episode.seasonId,
+      seasonNumber: String(target.episode.seasonNumber),
+      episodeNumber: String(target.episode.number)
+    };
+    (0, import_stream_policy.targetKey)(identity);
+    return identity;
+  }
+  function serverIdentifier(extractor, target) {
+    return extractor + ":" + (0, import_stream_policy.targetKey)(playableIdentity(target));
+  }
+  function serverIdentity(server, target) {
+    try {
+      const extractor = server.id.split(":")[0];
+      if (extractor !== "vixcloud" && extractor !== "vixsrc") return false;
+      if (server.providerId !== import_catalog_metadata.PROVIDER || !server.name || server.name.length > 80 || server.id !== serverIdentifier(extractor, target) || (0, import_stream_policy.targetKey)(playableIdentity(server.target)) !== (0, import_stream_policy.targetKey)(playableIdentity(target)) || !server.resource || server.resource.http)
+        return false;
+      const url = new URL(server.resource.url);
+      return url.protocol === "https:" && !url.port && !url.username && !url.password && !url.hash && url.hostname === (extractor === "vixcloud" ? "vixcloud.co" : "vixsrc.to") && (extractor === "vixcloud" ? /^\/embed\/[1-9]\d{0,9}$/.test(url.pathname) && (url.search === "" || url.search === "?canPlayFHD=1") : !url.search && /^\/api\/(?:movie\/[1-9]\d{0,9}|tv\/[1-9]\d{0,9}\/[1-9]\d{0,3}\/[1-9]\d{0,3})$/.test(
+        url.pathname
+      ));
+    } catch {
+      return false;
+    }
+  }
+
+  // src/catalog/provider.ts
   var StreamingCommunityProvider = class {
-    constructor(transport) {
+    constructor(transport, serverTransport) {
       this.transport = transport;
-      this.id = import_catalog_metadata.PROVIDER;
+      this.serverTransport = serverTransport;
+      this.id = import_catalog_metadata2.PROVIDER;
       this.name = "StreamingCommunity IT";
       this.language = "it";
       this.capabilities = {
@@ -625,8 +777,9 @@
         genres: false,
         people: false,
         seasons: true,
-        playback: false
+        playback: true
       };
+      this.issuedServers = /* @__PURE__ */ new Map();
       this.getCatalog = (kind, page, context) => attempt(context, async () => {
         if (!this.valid({ providerId: this.id, id: "", kind }) || page.kind !== "number")
           return failure("unsupported", "Tipo o paginazione non supportati");
@@ -648,6 +801,54 @@
           context
         );
         return result.ok ? result.value.kind === "page" ? success(result.value.page) : failure("invalid-data", "Ricerca non valida") : result;
+      });
+    }
+    getServers(target, context = {}) {
+      return attempt(context, async () => {
+        var _a;
+        try {
+          playableIdentity(target);
+        } catch {
+          return failure("invalid-data", "Identit\xE0 riproducibile non valida");
+        }
+        if (!this.serverTransport)
+          return failure("unsupported", "Trasporto server non configurato");
+        const result = await this.serverTransport.getServers(target, context);
+        if (!result.ok) return result;
+        if ((_a = context.signal) == null ? void 0 : _a.aborted)
+          return failure("cancelled", "Elenco server annullato");
+        if (result.value.length > 8)
+          return failure("invalid-data", "Troppi server");
+        const identities = /* @__PURE__ */ new Set();
+        for (const server of result.value) {
+          if (!serverIdentity(server, target) || identities.has(server.id))
+            return failure("invalid-data", "Identit\xE0 server non valida");
+          identities.add(server.id);
+        }
+        for (const [identifier, issued] of this.issuedServers) {
+          if (serverIdentity(issued, target))
+            this.issuedServers.delete(identifier);
+        }
+        if (this.issuedServers.size + result.value.length > 32)
+          this.issuedServers.clear();
+        for (const server of result.value)
+          this.issuedServers.set(
+            server.id,
+            JSON.parse(JSON.stringify(server))
+          );
+        return result;
+      });
+    }
+    getVideo(server, context = {}) {
+      return attempt(context, async () => {
+        const issued = this.issuedServers.get(server.id);
+        if (!issued || !serverIdentity(server, issued.target) || JSON.stringify(server) !== JSON.stringify(issued) || !issued.resource)
+          return failure("invalid-data", "Server non emesso o modificato");
+        return success({
+          kind: "extract",
+          resource: { url: issued.resource.url },
+          extractorId: issued.id.split(":")[0]
+        });
       });
     }
     valid(content) {
@@ -702,7 +903,12 @@
         if (!actual)
           return failure("invalid-data", "Stagione non appartenente alla serie");
         const loaded = result.value.loadedSeason;
-        return loaded && loaded.id === season.id ? success({ items: loaded.episodes }) : failure(
+        return loaded && loaded.id === season.id ? success({
+          items: loaded.episodes.map((episode) => ({
+            ...episode,
+            seasonNumber: season.number
+          }))
+        }) : failure(
           "unsupported",
           "Episodi della stagione non inclusi nel dettaglio; route separata non verificata"
         );
@@ -711,9 +917,9 @@
   };
 
   // src/catalog/fixtures.ts
-  var import_catalog_metadata2 = __toESM(require_catalog_metadata(), 1);
+  var import_catalog_metadata3 = __toESM(require_catalog_metadata(), 1);
   function fixtureResponse(input) {
-    (0, import_catalog_metadata2.requestDescriptor)(input);
+    (0, import_catalog_metadata3.requestDescriptor)(input);
     const film = {
       id: 900001,
       slug: "film-fixture",
@@ -803,7 +1009,7 @@
       try {
         const response = fixtureResponse(input);
         await Promise.resolve();
-        return ((_b = context.signal) == null ? void 0 : _b.aborted) ? failure("cancelled", "Richiesta annullata") : success((0, import_catalog_metadata2.parseMetadata)(input, response.body, response.mime));
+        return ((_b = context.signal) == null ? void 0 : _b.aborted) ? failure("cancelled", "Richiesta annullata") : success((0, import_catalog_metadata3.parseMetadata)(input, response.body, response.mime));
       } catch {
         return failure("invalid-data", "Fixture o richiesta non valida");
       }
@@ -811,9 +1017,9 @@
   };
 
   // src/catalog/transport.ts
-  var import_catalog_metadata3 = __toESM(require_catalog_metadata(), 1);
+  var import_catalog_metadata4 = __toESM(require_catalog_metadata(), 1);
   function localPath(input) {
-    (0, import_catalog_metadata3.requestDescriptor)(input);
+    (0, import_catalog_metadata4.requestDescriptor)(input);
     let path;
     switch (input.op) {
       case "home":
@@ -829,7 +1035,7 @@
         path = "/catalog/detail?type=" + input.type + "&id=" + input.id;
         break;
     }
-    (0, import_catalog_metadata3.parseRoute)(path);
+    (0, import_catalog_metadata4.parseRoute)(path);
     return path;
   }
   var LocalCatalogTransport = class {
@@ -933,7 +1139,7 @@
         }
         if (envelope.ok !== true)
           return failure("invalid-data", "Esito catalogo non valido");
-        const value = (0, import_catalog_metadata3.validateData)(envelope.data);
+        const value = (0, import_catalog_metadata4.validateData)(envelope.data);
         if (value.kind !== (input.op === "home" ? "home" : input.op === "detail" ? "detail" : "page"))
           return failure("invalid-data", "Operazione risposta non coerente");
         if (value.kind === "page" && "page" in input && value.pageNumber !== input.page)
@@ -962,26 +1168,525 @@
   };
 
   // src/catalog/ui.ts
-  var import_catalog_metadata4 = __toESM(require_catalog_metadata(), 1);
+  var import_catalog_metadata6 = __toESM(require_catalog_metadata(), 1);
+
+  // src/foundation/resolver.ts
+  var StreamResolver = class {
+    constructor(providers, extractors) {
+      this.providers = providers;
+      this.extractors = extractors;
+    }
+    resolve(server, context = {}) {
+      return attempt(context, async () => {
+        var _a;
+        const content = server.target.kind === "episode" ? server.target.episode.show : server.target.content;
+        if ((server.target.kind === "episode" ? "tv-show" : server.target.kind) !== content.kind)
+          return failure("invalid-data", "Playable kind mismatch");
+        const targetProvider = server.target.kind === "episode" ? server.target.episode.show.providerId : server.target.content.providerId;
+        if (targetProvider !== server.providerId)
+          return failure("invalid-data", "Server provider mismatch");
+        const provider = this.providers.get(server.providerId);
+        if (!provider.ok) return provider;
+        if (!provider.value.getVideo)
+          return failure("unsupported", "Stream resolution unavailable");
+        const resolution = await provider.value.getVideo(server, context);
+        if (!resolution.ok) return resolution;
+        if ((_a = context.signal) == null ? void 0 : _a.aborted)
+          return failure("cancelled", "Resolution cancelled");
+        if (resolution.value.kind === "direct")
+          return success(resolution.value.video);
+        const selected = this.extractors.select(
+          resolution.value.resource,
+          resolution.value.extractorId
+        );
+        return selected.ok ? selected.value.extract(resolution.value.resource, context) : selected;
+      });
+    }
+  };
+
+  // src/foundation/playback-adapter.ts
+  function adaptVideo(video, now = Date.now(), baseUrl) {
+    var _a, _b;
+    if (video.expiresAt !== void 0 && (!Number.isFinite(video.expiresAt) || video.expiresAt <= now))
+      return failure("expired", "Resolve a fresh video URL");
+    if (video.drm) return failure("unsupported", "DRM not supported by baseline");
+    const metadata = video.http;
+    if (metadata && (Object.keys(metadata.headers || {}).length || metadata.referer || metadata.cookies || metadata.token || metadata.maintainToken))
+      return failure(
+        "http-requirements",
+        "Playback HTTP requirements cannot be guaranteed; nothing discarded"
+      );
+    if (video.subtitles.length || video.audioTracks.some((track) => track.resource) || ((_a = video.hints) == null ? void 0 : _a.extraBuffering) || ((_b = video.hints) == null ? void 0 : _b.useServerSubtitleSetting))
+      return failure(
+        "unsupported",
+        "External tracks or playback hints need an explicit adapter extension"
+      );
+    if (!["mp4", "hls"].includes(video.format))
+      return failure("unsupported", "Unsupported video format");
+    if (video.codecs && !/^avc1\.[0-9a-f]{6}\s*,\s*mp4a\.40\.2$/i.test(video.codecs))
+      return failure(
+        "unsupported",
+        "Codec combination outside verified H264/AAC baseline"
+      );
+    try {
+      const url = new URL(video.url, baseUrl);
+      if (!["http:", "https:"].includes(url.protocol) || url.username || url.password)
+        return failure("invalid-data", "Invalid playback URL");
+      return success({
+        player: video.format === "hls" ? "hls-js" : "html5",
+        url: url.href
+      });
+    } catch {
+      return failure("invalid-data", "Invalid playback URL");
+    }
+  }
+
+  // src/resolution/transport.ts
+  var import_stream_policy2 = __toESM(require_stream_policy(), 1);
+  function serverPath(target) {
+    const identity = playableIdentity(target);
+    const path = "/stream/servers?" + Object.entries(identity).map(([name, value]) => name + "=" + encodeURIComponent(value)).join("&");
+    (0, import_stream_policy2.parseRoute)(path);
+    return path;
+  }
+  var LocalServerTransport = class {
+    constructor(fetchResource = (url, init) => fetch(url, init), timeoutMs = 14e3) {
+      this.fetchResource = fetchResource;
+      this.timeoutMs = timeoutMs;
+    }
+    async getServers(target, context = {}) {
+      var _a, _b, _c, _d, _e, _f;
+      if ((_a = context.signal) == null ? void 0 : _a.aborted)
+        return failure("cancelled", "Richiesta server annullata");
+      let path;
+      try {
+        path = serverPath(target);
+      } catch {
+        return failure("invalid-data", "Identit\xE0 server non valida");
+      }
+      const controller2 = new AbortController();
+      const cancel2 = () => controller2.abort();
+      (_b = context.signal) == null ? void 0 : _b.addEventListener("abort", cancel2);
+      let timedOut = false;
+      const timer = setTimeout(() => {
+        timedOut = true;
+        controller2.abort();
+      }, this.timeoutMs);
+      let parsing = false;
+      let reader;
+      try {
+        const response = await this.fetchResource(
+          "http://127.0.0.1:17861" + path,
+          {
+            method: "GET",
+            credentials: "omit",
+            redirect: "error",
+            cache: "no-store",
+            signal: controller2.signal
+          }
+        );
+        if (!/^application\/json(?:;|$)/i.test(
+          response.headers.get("content-type") || ""
+        ))
+          return failure("invalid-data", "MIME server locale non valido");
+        const length = response.headers.get("content-length");
+        if (length && (!/^\d+$/.test(length) || Number(length) > 65536))
+          return failure("invalid-data", "Limite risposta server");
+        reader = (_c = response.body) == null ? void 0 : _c.getReader();
+        if (!reader)
+          return failure("unsupported", "Streaming HTTP non disponibile");
+        const parts = [];
+        let size = 0;
+        while (true) {
+          const part = await reader.read();
+          if (part.done) break;
+          size += part.value.length;
+          if (size > 65536)
+            return failure("invalid-data", "Limite risposta server");
+          parts.push(part.value);
+        }
+        const joined = new Uint8Array(size);
+        let offset = 0;
+        for (const part of parts) {
+          joined.set(part, offset);
+          offset += part.length;
+        }
+        parsing = true;
+        const envelope = JSON.parse(
+          new TextDecoder("utf-8", { fatal: true }).decode(joined)
+        );
+        if ((_d = context.signal) == null ? void 0 : _d.aborted)
+          return failure("cancelled", "Richiesta server annullata");
+        if (!envelope || typeof envelope !== "object")
+          return failure("invalid-data", "Risposta server non valida");
+        const value = envelope;
+        if (value.protocol !== "p027-v1" || value.ok !== false || response.ok)
+          return failure(
+            "invalid-data",
+            "Successo live non verificato: risposta rifiutata"
+          );
+        const allowed = [
+          "STREAM_ACCESS_RESTRICTED",
+          "INVALID_REQUEST",
+          "BUSY",
+          "TIMEOUT"
+        ];
+        return failure(
+          "http",
+          typeof value.error === "string" && allowed.includes(value.error) ? value.error : "HTTP_FAILURE",
+          response.status === 429 || response.status >= 500,
+          response.status
+        );
+      } catch {
+        return ((_e = context.signal) == null ? void 0 : _e.aborted) ? failure("cancelled", "Richiesta server annullata") : timedOut ? failure("network", "Timeout server", true) : parsing ? failure("invalid-data", "Risposta server malformata") : failure("network", "Servizio server non disponibile", true);
+      } finally {
+        controller2.abort();
+        clearTimeout(timer);
+        (_f = context.signal) == null ? void 0 : _f.removeEventListener("abort", cancel2);
+        try {
+          await (reader == null ? void 0 : reader.cancel());
+        } catch {
+        }
+      }
+    }
+    getDocument() {
+      return Promise.resolve(
+        failure(
+          "unsupported",
+          "Documenti extractor live bloccati: accesso non verificato"
+        )
+      );
+    }
+  };
+
+  // src/resolution/fixtures.ts
+  var import_catalog_metadata5 = __toESM(require_catalog_metadata(), 1);
+  var FixtureServerTransport = class {
+    constructor() {
+      this.resources = /* @__PURE__ */ new Map();
+    }
+    getServers(target, context = {}) {
+      return attempt(context, async () => {
+        try {
+          playableIdentity(target);
+        } catch {
+          return failure("invalid-data", "Target fixture non valido");
+        }
+        const resources = {
+          vixcloud: "https://vixcloud.co/embed/900001?canPlayFHD=1",
+          vixsrc: target.kind === "episode" ? "https://vixsrc.to/api/tv/900099/" + target.episode.seasonNumber + "/" + target.episode.number : "https://vixsrc.to/api/movie/900098"
+        };
+        return success(
+          ["vixcloud", "vixsrc"].map((extractor) => {
+            this.resources.set(resources[extractor], extractor);
+            return {
+              id: serverIdentifier(extractor, target),
+              providerId: import_catalog_metadata5.PROVIDER,
+              name: (extractor === "vixcloud" ? "Vixcloud" : "VixSrc") + " \u2014 FIXTURE",
+              target,
+              resource: { url: resources[extractor] }
+            };
+          })
+        );
+      });
+    }
+    getDocument(resource, extractor, context = {}) {
+      return attempt(context, async () => {
+        if (this.resources.get(resource.url) !== extractor || resource.http)
+          return failure("invalid-data", "Risorsa fixture non emessa");
+        const html = "<html><script>window.video = {id: '900001', filename: 'SYNTHETIC'}; window.masterPlaylist = {params: {'token': 'SYNTHETIC-NOT-A-CREDENTIAL', 'expires': '4070908800'}, url: '/playlist/900001?b=1'}; window.canPlayFHD = true;<\/script></html>";
+        return success(
+          extractor === "vixcloud" ? { html } : {
+            html,
+            api: JSON.stringify({ src: "/embed/900001" }),
+            embedUrl: "https://vixsrc.to/embed/900001"
+          }
+        );
+      });
+    }
+  };
+
+  // src/resolution/literals.ts
+  function assignment(html, name) {
+    if (html.length > 2097152 || /Access denied|cf-chl-|challenge-platform/i.test(html))
+      throw new Error("Restricted or oversized document");
+    function matchesOf(expression2, text2) {
+      const values = [];
+      let match;
+      while (match = expression2.exec(text2)) values.push(match);
+      return values;
+    }
+    const scripts = matchesOf(/<script\b[^>]*>([\s\S]*?)<\/script\s*>/gi, html).map((match) => match[1]).join("\n");
+    const expression = new RegExp("\\bwindow\\." + name + "\\s*=\\s*", "g");
+    const matches = matchesOf(expression, scripts);
+    if (matches.length !== 1) throw new Error("Missing or ambiguous assignment");
+    let position = matches[0].index + matches[0][0].length;
+    let count = 0;
+    function whitespace() {
+      while (/\s/.test(scripts[position] || "") && position < scripts.length)
+        position++;
+    }
+    function string() {
+      const quote = scripts[position++];
+      let value2 = "";
+      while (position < scripts.length) {
+        const character = scripts[position++];
+        if (character === quote) return value2;
+        if (character === "\\") {
+          const escaped = scripts[position++];
+          const simple = {
+            "\\": "\\",
+            '"': '"',
+            "'": "'",
+            "/": "/",
+            n: "\n",
+            r: "\r",
+            t: "	",
+            b: "\b",
+            f: "\f"
+          };
+          if (escaped === "u") {
+            const digits = scripts.slice(position, position + 4);
+            if (!/^[a-f0-9]{4}$/i.test(digits)) throw new Error("Escape");
+            value2 += String.fromCharCode(parseInt(digits, 16));
+            position += 4;
+          } else if (escaped && Object.prototype.hasOwnProperty.call(simple, escaped))
+            value2 += simple[escaped];
+          else throw new Error("Escape");
+        } else {
+          if (!character || character.charCodeAt(0) < 32)
+            throw new Error("String");
+          value2 += character;
+        }
+        if (value2.length > 4096) throw new Error("String limit");
+      }
+      throw new Error("Unclosed string");
+    }
+    function value(depth) {
+      if (depth > 6 || ++count > 100) throw new Error("Literal limit");
+      whitespace();
+      const character = scripts[position];
+      if (character === '"' || character === "'") return string();
+      if (character === "{") {
+        position++;
+        const object = /* @__PURE__ */ Object.create(null);
+        whitespace();
+        while (scripts[position] !== "}") {
+          whitespace();
+          let key;
+          if (scripts[position] === '"' || scripts[position] === "'")
+            key = string();
+          else {
+            const match = /^[A-Za-z_$][\w$]*/.exec(scripts.slice(position));
+            if (!match) throw new Error("Key");
+            key = match[0];
+            position += key.length;
+          }
+          if (["__proto__", "constructor", "prototype"].includes(key) || Object.prototype.hasOwnProperty.call(object, key))
+            throw new Error("Key collision");
+          whitespace();
+          if (scripts[position++] !== ":") throw new Error("Colon");
+          object[key] = value(depth + 1);
+          whitespace();
+          if (scripts[position] !== ",") break;
+          position++;
+          whitespace();
+        }
+        if (scripts[position++] !== "}") throw new Error("Object");
+        return object;
+      }
+      const literal = /^(?:-?(?:0|[1-9]\d*)(?:\.\d+)?|true|false|null)(?![\w$.])/.exec(
+        scripts.slice(position)
+      );
+      if (!literal) throw new Error("Expressions are unsupported");
+      position += literal[0].length;
+      return JSON.parse(literal[0]);
+    }
+    const result = value(0);
+    whitespace();
+    if (scripts[position] !== ";" || !result || typeof result !== "object")
+      throw new Error("Assignment terminator");
+    return result;
+  }
+
+  // src/resolution/extractors.ts
+  function vixsrcEmbed(api) {
+    if (api.length > 16384) throw new Error("API limit");
+    const parsed = JSON.parse(api);
+    if (!parsed || typeof parsed !== "object" || Array.isArray(parsed) || Object.keys(parsed).join() !== "src")
+      throw new Error("API schema");
+    const source2 = parsed.src;
+    if (typeof source2 !== "string" || source2.length > 2048 || /[\s\\#]/.test(source2))
+      throw new Error("Embed URL");
+    const url = new URL(source2, "https://vixsrc.to/");
+    if (url.origin !== "https://vixsrc.to" || url.username || url.password || !/^\/embed\/[1-9]\d{0,9}$/.test(url.pathname))
+      throw new Error("Unverified embed route");
+    url.searchParams.forEach((value, key) => {
+      if (!["token", "expires", "canPlayFHD"].includes(key) || !/^[A-Za-z0-9_.~-]{1,512}$/.test(value) || url.searchParams.getAll(key).length !== 1)
+        throw new Error("Embed parameters");
+    });
+    return url.href;
+  }
+  function playlistVideo(html, extractor, resource, embedUrl, now = Date.now()) {
+    try {
+      const origin = extractor === "vixcloud" ? "https://vixcloud.co" : "https://vixsrc.to";
+      const embed = new URL(embedUrl);
+      if (embed.origin !== origin || embed.username || embed.password || !/^\/embed\/[1-9]\d{0,9}$/.test(embed.pathname) || embed.hash || resource.http)
+        throw new Error("Embed identity");
+      const video = assignment(html, "video"), master = assignment(html, "masterPlaylist");
+      const videoId = String(video.id);
+      if (!/^[1-9]\d{0,9}$/.test(videoId) || !master.params || typeof master.params !== "object" || Array.isArray(master.params))
+        throw new Error("Video/params schema");
+      const parameters = master.params;
+      if (Object.keys(parameters).some((key) => !["token", "expires"].includes(key)))
+        return failure("unsupported", "Parametri playlist non verificati");
+      const token = parameters.token, expires = String(parameters.expires);
+      if (typeof token !== "string" || !/^[A-Za-z0-9_.~-]{1,512}$/.test(token) || !/^[1-9]\d{8,11}$/.test(expires))
+        throw new Error("Token/expiry");
+      const expiresAt = Number(expires) * 1e3;
+      if (!Number.isSafeInteger(expiresAt)) throw new Error("Expiry limit");
+      if (expiresAt <= now)
+        return failure(
+          "expired",
+          "URL temporaneo scaduto: risolvere nuovamente, nessun retry automatico"
+        );
+      if (typeof master.url !== "string") throw new Error("Master URL");
+      const masterUrl = new URL(master.url, origin);
+      if (masterUrl.origin !== origin || masterUrl.pathname !== "/playlist/" + videoId || masterUrl.username || masterUrl.password || masterUrl.hash)
+        throw new Error("Playlist destination");
+      masterUrl.searchParams.forEach((value, key) => {
+        if (key !== "b" || value !== "1" || masterUrl.searchParams.getAll(key).length !== 1)
+          throw new Error("Playlist parameters");
+      });
+      const playlist = new URL("/playlist/" + videoId, origin);
+      playlist.searchParams.set("token", token);
+      playlist.searchParams.set("expires", expires);
+      if (masterUrl.searchParams.get("b") === "1")
+        playlist.searchParams.set("b", "1");
+      const fullHd = extractor === "vixcloud" ? embed.searchParams.get("canPlayFHD") === "1" : /\bwindow\.canPlayFHD\s*=\s*true\s*;/.test(html);
+      if (fullHd) playlist.searchParams.set("h", "1");
+      playlist.searchParams.set(
+        extractor === "vixcloud" ? "language" : "lang",
+        "it"
+      );
+      return success({
+        url: playlist.href,
+        format: "hls",
+        expiresAt,
+        subtitles: [],
+        audioTracks: [],
+        http: {
+          referer: extractor === "vixcloud" ? origin + "/" : embed.href,
+          headers: {
+            "User-Agent": extractor === "vixcloud" ? "Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/150.0.0.0 Safari/537.36" : "Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/124.0.0.0 Safari/537.36"
+          },
+          ...extractor === "vixcloud" ? { cookies: { mode: "explicit", header: "language=it" } } : {},
+          token: { value: token, location: "query", name: "token" },
+          maintainToken: true
+        }
+      });
+    } catch {
+      return failure(
+        "invalid-data",
+        "Documento extractor non valido o schema non verificato"
+      );
+    }
+  }
+  var VixcloudExtractor = class {
+    constructor(transport, clock = () => Date.now()) {
+      this.transport = transport;
+      this.clock = clock;
+      this.id = "vixcloud";
+      this.hosts = ["vixcloud.co"];
+    }
+    extract(resource, context = {}) {
+      return attempt(context, async () => {
+        const embed = new URL(resource.url);
+        if (resource.http || embed.origin !== "https://vixcloud.co" || embed.username || embed.password || embed.hash || !/^\/embed\/[1-9]\d{0,9}$/.test(embed.pathname) || embed.search !== "" && embed.search !== "?canPlayFHD=1")
+          return failure("invalid-data", "Risorsa Vixcloud non verificata");
+        const document2 = await this.transport.getDocument(
+          resource,
+          "vixcloud",
+          context
+        );
+        return document2.ok ? playlistVideo(
+          document2.value.html,
+          "vixcloud",
+          resource,
+          resource.url,
+          this.clock()
+        ) : document2;
+      });
+    }
+  };
+  var VixSrcExtractor = class {
+    constructor(transport, clock = () => Date.now()) {
+      this.transport = transport;
+      this.clock = clock;
+      this.id = "vixsrc";
+      this.hosts = ["vixsrc.to"];
+    }
+    extract(resource, context = {}) {
+      return attempt(context, async () => {
+        const apiUrl = new URL(resource.url);
+        if (resource.http || apiUrl.origin !== "https://vixsrc.to" || apiUrl.search || apiUrl.hash || apiUrl.username || apiUrl.password || !/^\/api\/(?:movie\/[1-9]\d{0,9}|tv\/[1-9]\d{0,9}\/[1-9]\d{0,3}\/[1-9]\d{0,3})$/.test(
+          apiUrl.pathname
+        ))
+          return failure("invalid-data", "API VixSrc non verificata");
+        const document2 = await this.transport.getDocument(
+          resource,
+          "vixsrc",
+          context
+        );
+        if (!document2.ok) return document2;
+        try {
+          const embed = vixsrcEmbed(document2.value.api || "");
+          if (document2.value.embedUrl !== embed)
+            return failure(
+              "invalid-data",
+              "Embed non corrispondente alla risposta API"
+            );
+          return playlistVideo(
+            document2.value.html,
+            "vixsrc",
+            resource,
+            embed,
+            this.clock()
+          );
+        } catch {
+          return failure("invalid-data", "Risposta API VixSrc non valida");
+        }
+      });
+    }
+  };
+
+  // src/catalog/ui.ts
   var root = document.getElementById("catalog-content");
   var title = document.getElementById("catalog-title");
   var status = document.getElementById("catalog-status");
   var source = "fixture";
   var registry;
   var catalog;
+  var resolver;
   var stack = [];
   var controller;
   var sequence = 0;
   var query = "";
   function setup() {
     registry = new ProviderRegistry();
+    const serverTransport = source === "fixture" ? new FixtureServerTransport() : new LocalServerTransport();
     registry.register(
       new StreamingCommunityProvider(
-        source === "fixture" ? new FixtureCatalogTransport() : new LocalCatalogTransport()
+        source === "fixture" ? new FixtureCatalogTransport() : new LocalCatalogTransport(),
+        serverTransport
       )
     );
     catalog = new CatalogService(registry);
-    document.getElementById("catalog-mode").textContent = source === "fixture" ? "FIXTURE SINTETICHE \u2014 nessun dato live. Permessi esterni non verificati." : import_catalog_metadata4.LIVE_APPROVED ? "SERVIZIO LOCALE \u2014 SOLO SVILUPPO: 20 richieste / 15 minuti, nessuna riproduzione." : "SERVIZIO LOCALE \u2014 recupero live disabilitato in attesa dei permessi.";
+    const extractors = new ExtractorRegistry();
+    extractors.register(new VixcloudExtractor(serverTransport));
+    extractors.register(new VixSrcExtractor(serverTransport));
+    resolver = new StreamResolver(registry, extractors);
+    document.getElementById("catalog-mode").textContent = source === "fixture" ? "FIXTURE SINTETICHE \u2014 nessun dato live. Permessi esterni non verificati." : import_catalog_metadata6.LIVE_APPROVED ? "SERVIZIO LOCALE \u2014 SOLO SVILUPPO: 20 richieste / 15 minuti, nessuna riproduzione." : "SERVIZIO LOCALE \u2014 recupero live disabilitato in attesa dei permessi.";
   }
   function text(message) {
     const p = document.createElement("p");
@@ -1026,7 +1731,7 @@
     button("nav-fixture", "Usa fixture sintetiche", () => mode("fixture"));
     button(
       "nav-service",
-      import_catalog_metadata4.LIVE_APPROVED ? "Servizio locale (test sviluppo live)" : "Servizio locale (live bloccato)",
+      import_catalog_metadata6.LIVE_APPROVED ? "Servizio locale (test sviluppo live)" : "Servizio locale (live bloccato)",
       () => mode("service")
     );
     view.draw();
@@ -1106,7 +1811,7 @@
   function home() {
     open(
       "Home italiana",
-      (signal) => catalog.home(import_catalog_metadata4.PROVIDER, { signal }),
+      (signal) => catalog.home(import_catalog_metadata6.PROVIDER, { signal }),
       (categories) => {
         categories.forEach((category) => {
           text(category.title);
@@ -1130,7 +1835,7 @@
   function browse(kind, number) {
     open(
       kind === "movie" ? "Catalogo film" : "Catalogo serie",
-      (signal) => catalog.catalog(import_catalog_metadata4.PROVIDER, kind, { kind: "number", number }, { signal }),
+      (signal) => catalog.catalog(import_catalog_metadata6.PROVIDER, kind, { kind: "number", number }, { signal }),
       (value) => {
         items(value.items);
         pages(value, number, (n) => browse(kind, n));
@@ -1141,7 +1846,7 @@
     const term = query.trim();
     open(
       "Ricerca: " + term,
-      (signal) => catalog.search(import_catalog_metadata4.PROVIDER, term, { kind: "number", number }, { signal }),
+      (signal) => catalog.search(import_catalog_metadata6.PROVIDER, term, { kind: "number", number }, { signal }),
       (value) => {
         items(value.items);
         pages(value, number, search);
@@ -1192,7 +1897,15 @@
         text(value.title);
         text(((_a = value.overview) == null ? void 0 : _a.slice(0, 600)) || "Descrizione non disponibile.");
         text("Identit\xE0: " + value.providerId + "/" + value.kind + "/" + value.id);
-        text("Riproduzione esclusa da P02.6.");
+        text(
+          "Riproduzione esclusa: P02.7 separa disponibilit\xE0, risoluzione e compatibilit\xE0."
+        );
+        if (value.kind === "movie")
+          button(
+            "servers",
+            "Scegli server",
+            () => servers({ kind: "movie", content: value })
+          );
         if (value.kind === "tv-show")
           button("seasons", "Scegli stagione", () => seasons(value));
       }
@@ -1237,11 +1950,53 @@
                   text(
                     ((_a = episode.overview) == null ? void 0 : _a.slice(0, 600)) || "Descrizione non disponibile."
                   );
-                  text("Nessuna riproduzione in questa fase.");
+                  text("Nessuna riproduzione live in questa fase.");
+                  button(
+                    "servers",
+                    "Scegli server episodio",
+                    () => servers({ kind: "episode", episode })
+                  );
                 }
               });
             }
           )
+        );
+      }
+    );
+  }
+  function servers(target) {
+    open(
+      "Server disponibili",
+      (signal) => catalog.servers(target, { signal }),
+      (values) => {
+        text(
+          source === "fixture" ? "FIXTURE: server sintetici, nessuna disponibilit\xE0 live verificata." : "Elenco server live: nessuna prova di riproducibilit\xE0."
+        );
+        if (!values.length) text("Nessun server disponibile nella risposta.");
+        values.forEach(
+          (server) => button("server-" + server.id, server.name, () => resolveServer(server))
+        );
+      }
+    );
+  }
+  function resolveServer(server) {
+    open(
+      "Risoluzione server",
+      (signal) => resolver.resolve(server, { signal }),
+      (video) => {
+        text("Server selezionato: " + server.name);
+        text(
+          "Risoluzione URL: completata" + (source === "fixture" ? " su dati SINTETICI." : ".")
+        );
+        text(
+          "Formato: " + video.format + ". URL e credenziali non mostrati n\xE9 salvati."
+        );
+        const compatible = adaptVideo(video);
+        text(
+          compatible.ok ? "Compatibilit\xE0 HTTP: ammessa dall'adapter; HTTP/CORS e media non ancora provati." : "Compatibilit\xE0 HTTP/player: " + compatible.error.code + " \u2014 " + compatible.error.message
+        );
+        text(
+          "Riproduzione effettiva: NON AVVIATA. Tornare indietro per cambiare server."
         );
       }
     );
@@ -1291,7 +2046,7 @@
       render();
     }
   });
-  document.getElementById("catalog-build").textContent = "0.1.7-dev.1-dev-metadata+f9f24857fb97";
+  document.getElementById("catalog-build").textContent = "0.1.7-dev.2-dev-metadata+9008331b3ff6";
   setup();
   home();
 })();

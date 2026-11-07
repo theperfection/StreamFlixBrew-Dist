@@ -34117,7 +34117,7 @@ Schedule: ${scheduleItems.map((seg) => segmentToString(seg))} pos: ${this.timeli
     log("Errore JavaScript: " + message);
   };
   function report() {
-    return makeReport("0.1.7-dev.1-dev-metadata+f9f24857fb97", findings, keys, errors, events);
+    return makeReport("0.1.7-dev.2-dev-metadata+9008331b3ff6", findings, keys, errors, events);
   }
   function showPages(heading, content, reset = true) {
     title.textContent = heading;
@@ -34205,6 +34205,10 @@ Schedule: ${scheduleItems.map((seg) => segmentToString(seg))} pos: ${this.timeli
   async function run(id) {
     var _a;
     switch (id) {
+      case "tv-home":
+        player.stop();
+        location.href = new URL("./tv.html", document.baseURI).href;
+        break;
       case "catalog":
         player.stop();
         location.href = new URL("./catalog.html", document.baseURI).href;
@@ -34375,11 +34379,11 @@ Schedule: ${scheduleItems.map((seg) => segmentToString(seg))} pos: ${this.timeli
       log("Documento nascosto: player arrestato");
     }
   });
-  element("build").textContent = "0.1.7-dev.1-dev-metadata+f9f24857fb97";
+  element("build").textContent = "0.1.7-dev.2-dev-metadata+9008331b3ff6";
   refreshAvplay();
   summary();
   focusAt(
-    location.hash === "#catalog" ? buttons.findIndex((button) => button.id === "catalog") : 0
+    location.hash === "#tv" ? buttons.findIndex((button) => button.id === "tv-home") : location.hash === "#catalog" ? buttons.findIndex((button) => button.id === "catalog") : 0
   );
   log(
     "Pronto. AVPlay richiede API accessibile; canPlayType non prova la riproduzione."
