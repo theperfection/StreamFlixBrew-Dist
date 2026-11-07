@@ -92,6 +92,41 @@ var require_catalog_metadata = __commonJS({
       requestDescriptor(input);
       return input;
     }
+    var ARTWORK_BASE = "https://cdn.streamingunity.fun/images/";
+    var ARTWORK_FILENAME = /^[a-f0-9]{8}-[a-f0-9]{4}-[a-f0-9]{4}-[a-f0-9]{4}-[a-f0-9]{12}\.webp$/;
+    function artworkFilename(images, type) {
+      if (!LIVE_APPROVED || images === void 0 || images === null)
+        return void 0;
+      var selected;
+      list(images, 100).forEach(function(image) {
+        if (!object(image)) invalid();
+        if (image.type !== type) return;
+        if (typeof image.filename !== "string" || image.filename.length !== 41 || !ARTWORK_FILENAME.test(image.filename))
+          invalid();
+        if (selected === void 0) selected = image.filename;
+      });
+      return selected;
+    }
+    function withArtwork(target, images, posterType, includeBanner) {
+      var poster = artworkFilename(images, posterType);
+      var banner = includeBanner ? artworkFilename(images, "background") : void 0;
+      if (poster !== void 0) target.poster = ARTWORK_BASE + poster;
+      if (banner !== void 0) target.banner = ARTWORK_BASE + banner;
+      return target;
+    }
+    function dtoImages(item, posterType, includeBanner) {
+      if (!LIVE_APPROVED) return void 0;
+      var images = [];
+      function add(value, type) {
+        if (value === void 0) return;
+        if (typeof value !== "string" || value.indexOf(ARTWORK_BASE) !== 0 || value.length !== ARTWORK_BASE.length + 41 || !ARTWORK_FILENAME.test(value.slice(ARTWORK_BASE.length)))
+          invalid();
+        images.push({ type: type, filename: value.slice(ARTWORK_BASE.length) });
+      }
+      add(item.poster, posterType);
+      if (includeBanner) add(item.banner, "background");
+      return images;
+    }
     function summary(raw) {
       if (!object(raw)) invalid();
       var id = identity(raw.id), slug = text(raw.slug, 180, false);
@@ -105,7 +140,7 @@ var require_catalog_metadata = __commonJS({
       };
       var plot = text(raw.plot, 6e3, true);
       if (plot !== void 0) value.overview = plot;
-      return value;
+      return withArtwork(value, raw.images, "poster", true);
     }
     function unique(items) {
       var seen = /* @__PURE__ */ Object.create(null);
@@ -221,12 +256,17 @@ var require_catalog_metadata = __commonJS({
               if (!object(season)) invalid();
               if (season.title_id !== void 0 && identity(season.title_id) !== input.id.split("-")[0])
                 invalid();
-              return {
-                id: identity(season.id),
-                show: { providerId: PROVIDER, id: title.id, kind: "tv-show" },
-                number: integer(season.number, 0, 1e4),
-                title: text(season.name, 300, true)
-              };
+              return withArtwork(
+                {
+                  id: identity(season.id),
+                  show: { providerId: PROVIDER, id: title.id, kind: "tv-show" },
+                  number: integer(season.number, 0, 1e4),
+                  title: text(season.name, 300, true)
+                },
+                season.images,
+                "poster",
+                false
+              );
             })
           );
         if (title.kind === "tv-show") title.seasons = seasons;
@@ -252,14 +292,19 @@ var require_catalog_metadata = __commonJS({
                 if (!object(episode)) invalid();
                 if (episode.season_id !== void 0 && identity(episode.season_id) !== seasonId)
                   invalid();
-                return {
-                  id: identity(episode.id),
-                  seasonId: seasonId,
-                  show: { providerId: PROVIDER, id: title.id, kind: "tv-show" },
-                  number: integer(episode.number, 0, 1e4),
-                  title: text(episode.name, 300, true),
-                  overview: text(episode.plot, 6e3, true)
-                };
+                return withArtwork(
+                  {
+                    id: identity(episode.id),
+                    seasonId: seasonId,
+                    show: { providerId: PROVIDER, id: title.id, kind: "tv-show" },
+                    number: integer(episode.number, 0, 1e4),
+                    title: text(episode.name, 300, true),
+                    overview: text(episode.plot, 6e3, true)
+                  },
+                  episode.images,
+                  "cover",
+                  false
+                );
               })
             )
           };
@@ -298,7 +343,8 @@ var require_catalog_metadata = __commonJS({
           slug: item.id.slice(at + 1),
           name: item.title,
           type: item.kind === "movie" ? "movie" : "tv",
-          plot: item.overview
+          plot: item.overview,
+          images: dtoImages(item, "poster", true)
         };
       }
       if (!object(value)) invalid();
@@ -345,7 +391,12 @@ var require_catalog_metadata = __commonJS({
           r.seasons = list(d.seasons, 100).map(function(s) {
             if (!object(s) || !object(s.show) || s.show.providerId !== PROVIDER || s.show.id !== d.id || s.show.kind !== "tv-show")
               invalid();
-            return { id: s.id, number: s.number, name: s.title };
+            return {
+              id: s.id,
+              number: s.number,
+              name: s.title,
+              images: dtoImages(s, "poster", false)
+            };
           });
         if (value.loadedSeason !== null) {
           var loaded = value.loadedSeason;
@@ -359,7 +410,8 @@ var require_catalog_metadata = __commonJS({
                 id: ep.id,
                 number: ep.number,
                 name: ep.title,
-                plot: ep.overview
+                plot: ep.overview,
+                images: dtoImages(ep, "cover", false)
               };
             })
           };

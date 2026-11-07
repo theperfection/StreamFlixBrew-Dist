@@ -36,7 +36,7 @@
       "use strict";
       var PROVIDER4 = "streamingcommunity-it";
       var HOST = "streamingunity.fun";
-      var LIVE_APPROVED2 = true;
+      var LIVE_APPROVED3 = true;
       function invalid() {
         throw new Error("INVALID_DATA");
       }
@@ -112,6 +112,41 @@
         requestDescriptor3(input);
         return input;
       }
+      var ARTWORK_BASE = "https://cdn.streamingunity.fun/images/";
+      var ARTWORK_FILENAME = /^[a-f0-9]{8}-[a-f0-9]{4}-[a-f0-9]{4}-[a-f0-9]{4}-[a-f0-9]{12}\.webp$/;
+      function artworkFilename(images, type) {
+        if (!LIVE_APPROVED3 || images === void 0 || images === null)
+          return void 0;
+        var selected;
+        list(images, 100).forEach(function(image) {
+          if (!object(image)) invalid();
+          if (image.type !== type) return;
+          if (typeof image.filename !== "string" || image.filename.length !== 41 || !ARTWORK_FILENAME.test(image.filename))
+            invalid();
+          if (selected === void 0) selected = image.filename;
+        });
+        return selected;
+      }
+      function withArtwork(target, images, posterType, includeBanner) {
+        var poster = artworkFilename(images, posterType);
+        var banner = includeBanner ? artworkFilename(images, "background") : void 0;
+        if (poster !== void 0) target.poster = ARTWORK_BASE + poster;
+        if (banner !== void 0) target.banner = ARTWORK_BASE + banner;
+        return target;
+      }
+      function dtoImages(item, posterType, includeBanner) {
+        if (!LIVE_APPROVED3) return void 0;
+        var images = [];
+        function add(value, type) {
+          if (value === void 0) return;
+          if (typeof value !== "string" || value.indexOf(ARTWORK_BASE) !== 0 || value.length !== ARTWORK_BASE.length + 41 || !ARTWORK_FILENAME.test(value.slice(ARTWORK_BASE.length)))
+            invalid();
+          images.push({ type, filename: value.slice(ARTWORK_BASE.length) });
+        }
+        add(item.poster, posterType);
+        if (includeBanner) add(item.banner, "background");
+        return images;
+      }
       function summary(raw) {
         if (!object(raw)) invalid();
         var id = identity(raw.id), slug = text(raw.slug, 180, false);
@@ -125,7 +160,7 @@
         };
         var plot = text(raw.plot, 6e3, true);
         if (plot !== void 0) value.overview = plot;
-        return value;
+        return withArtwork(value, raw.images, "poster", true);
       }
       function unique(items) {
         var seen = /* @__PURE__ */ Object.create(null);
@@ -241,12 +276,17 @@
                 if (!object(season)) invalid();
                 if (season.title_id !== void 0 && identity(season.title_id) !== input.id.split("-")[0])
                   invalid();
-                return {
-                  id: identity(season.id),
-                  show: { providerId: PROVIDER4, id: title.id, kind: "tv-show" },
-                  number: integer(season.number, 0, 1e4),
-                  title: text(season.name, 300, true)
-                };
+                return withArtwork(
+                  {
+                    id: identity(season.id),
+                    show: { providerId: PROVIDER4, id: title.id, kind: "tv-show" },
+                    number: integer(season.number, 0, 1e4),
+                    title: text(season.name, 300, true)
+                  },
+                  season.images,
+                  "poster",
+                  false
+                );
               })
             );
           if (title.kind === "tv-show") title.seasons = seasons;
@@ -272,14 +312,19 @@
                   if (!object(episode)) invalid();
                   if (episode.season_id !== void 0 && identity(episode.season_id) !== seasonId)
                     invalid();
-                  return {
-                    id: identity(episode.id),
-                    seasonId,
-                    show: { providerId: PROVIDER4, id: title.id, kind: "tv-show" },
-                    number: integer(episode.number, 0, 1e4),
-                    title: text(episode.name, 300, true),
-                    overview: text(episode.plot, 6e3, true)
-                  };
+                  return withArtwork(
+                    {
+                      id: identity(episode.id),
+                      seasonId,
+                      show: { providerId: PROVIDER4, id: title.id, kind: "tv-show" },
+                      number: integer(episode.number, 0, 1e4),
+                      title: text(episode.name, 300, true),
+                      overview: text(episode.plot, 6e3, true)
+                    },
+                    episode.images,
+                    "cover",
+                    false
+                  );
                 })
               )
             };
@@ -318,7 +363,8 @@
             slug: item.id.slice(at + 1),
             name: item.title,
             type: item.kind === "movie" ? "movie" : "tv",
-            plot: item.overview
+            plot: item.overview,
+            images: dtoImages(item, "poster", true)
           };
         }
         if (!object(value)) invalid();
@@ -365,7 +411,12 @@
             r.seasons = list(d.seasons, 100).map(function(s) {
               if (!object(s) || !object(s.show) || s.show.providerId !== PROVIDER4 || s.show.id !== d.id || s.show.kind !== "tv-show")
                 invalid();
-              return { id: s.id, number: s.number, name: s.title };
+              return {
+                id: s.id,
+                number: s.number,
+                name: s.title,
+                images: dtoImages(s, "poster", false)
+              };
             });
           if (value.loadedSeason !== null) {
             var loaded = value.loadedSeason;
@@ -379,7 +430,8 @@
                   id: ep.id,
                   number: ep.number,
                   name: ep.title,
-                  plot: ep.overview
+                  plot: ep.overview,
+                  images: dtoImages(ep, "cover", false)
                 };
               })
             };
@@ -394,7 +446,7 @@
         invalid();
       }
       exports.PROVIDER = PROVIDER4;
-      exports.LIVE_APPROVED = LIVE_APPROVED2;
+      exports.LIVE_APPROVED = LIVE_APPROVED3;
       exports.requestDescriptor = requestDescriptor3;
       exports.parseRoute = parseRoute2;
       exports.parseMetadata = parseMetadata2;
@@ -1094,7 +1146,7 @@
   };
 
   // src/tv/ui.ts
-  var import_catalog_metadata5 = __toESM(require_catalog_metadata(), 1);
+  var import_catalog_metadata6 = __toESM(require_catalog_metadata(), 1);
 
   // src/navigation.ts
   function keyAction(key, code) {
@@ -1146,6 +1198,204 @@
     };
   }
 
+  // src/tv/artwork-policy.ts
+  var import_catalog_metadata5 = __toESM(require_catalog_metadata(), 1);
+  var artworkPolicy = { approvedHosts: [] };
+  if (import_catalog_metadata5.LIVE_APPROVED) artworkPolicy.approvedHosts = ["cdn.streamingunity.fun"];
+  function artworkUrl(value, policy = artworkPolicy) {
+    if (typeof value !== "string" || !value || value.length > 2048 || /[\s\\]/.test(value) || value.includes("%") || /\/\.\.?\//.test(value))
+      return;
+    try {
+      const url = new URL(value, policy.relativeBase);
+      if (!policy.relativeBase && value !== url.href || url.protocol !== "https:" || url.username || url.password || url.port || url.search || url.hash || !policy.approvedHosts.includes(url.hostname) || !/^\/images\/[a-f0-9]{8}-[a-f0-9]{4}-[a-f0-9]{4}-[a-f0-9]{4}-[a-f0-9]{12}\.webp$/.test(
+        url.pathname
+      ))
+        return;
+      return url.href;
+    } catch {
+      return;
+    }
+  }
+
+  // src/tv/artwork.ts
+  var TvArtwork = class {
+    constructor(root, available, policy = artworkPolicy) {
+      this.root = root;
+      this.available = available;
+      this.policy = policy;
+      this.known = /* @__PURE__ */ new WeakMap();
+      this.slots = /* @__PURE__ */ new Map();
+      this.activeUrls = /* @__PURE__ */ new Set();
+      this.scheduled = false;
+      this.retainedPixels = 0;
+      this.paused = false;
+      this.refreshScheduled = false;
+      this.refreshVisibility = () => {
+        this.slots.forEach((slot) => {
+          const rect = slot.target.getBoundingClientRect();
+          let left = Math.max(0, rect.left), top = Math.max(0, rect.top);
+          let right = Math.min(window.innerWidth, rect.right), bottom = Math.min(window.innerHeight, rect.bottom);
+          for (let parent = slot.target.parentElement; parent; parent = parent.parentElement) {
+            const style = window.getComputedStyle(parent);
+            const bounds = parent.getBoundingClientRect();
+            if (/(auto|scroll|hidden)/.test(style.overflowX)) {
+              left = Math.max(left, bounds.left);
+              right = Math.min(right, bounds.right);
+            }
+            if (/(auto|scroll|hidden)/.test(style.overflowY)) {
+              top = Math.max(top, bounds.top);
+              bottom = Math.min(bottom, bounds.bottom);
+            }
+          }
+          slot.visible = right > left && bottom > top;
+          if (!slot.visible) this.unload(slot);
+        });
+        this.schedule();
+      };
+      if (typeof IntersectionObserver !== "undefined")
+        this.observer = new IntersectionObserver(
+          (entries) => {
+            entries.forEach((entry) => {
+              const slot = this.slots.get(entry.target);
+              if (!slot) return;
+              slot.visible = entry.isIntersecting && entry.intersectionRatio > 0;
+              if (!slot.visible) this.unload(slot);
+            });
+            this.schedule();
+          },
+          { threshold: [0, 0.01] }
+        );
+      root.addEventListener("scroll", this.refreshVisibility, true);
+      window.addEventListener("resize", this.refreshVisibility);
+    }
+    bind(target, value, priority = 2) {
+      var _a, _b;
+      const url = artworkUrl(value, this.policy);
+      if (url && ((_a = this.known.get(target)) == null ? void 0 : _a.url) === url) return;
+      const previous = this.slots.get(target);
+      if (previous) {
+        this.unload(previous);
+        (_b = this.observer) == null ? void 0 : _b.unobserve(target);
+        this.slots.delete(target);
+      }
+      this.known.delete(target);
+      target.classList.remove("has-artwork");
+      if (!url) {
+        delete target.dataset.tvArtwork;
+        return;
+      }
+      target.dataset.tvArtwork = "pending";
+      this.known.set(target, { url, priority });
+      if (!this.refreshScheduled) {
+        this.refreshScheduled = true;
+        void Promise.resolve().then(() => {
+          this.refreshScheduled = false;
+          this.refresh();
+        });
+      }
+    }
+    refresh() {
+      this.slots.forEach((slot, target) => {
+        var _a;
+        if (!this.root.contains(target) || !this.available(target) || this.paused) {
+          this.unload(slot);
+          (_a = this.observer) == null ? void 0 : _a.unobserve(target);
+          this.slots.delete(target);
+        }
+      });
+      if (this.paused) return;
+      this.root.querySelectorAll("[data-tv-artwork]").forEach((target) => {
+        const data = this.known.get(target);
+        if (!data || this.slots.has(target) || !this.available(target)) return;
+        const slot = {
+          target,
+          ...data,
+          visible: false,
+          loading: false,
+          failed: false
+        };
+        this.slots.set(target, slot);
+        if (this.observer) this.observer.observe(target);
+      });
+      this.refreshVisibility();
+    }
+    schedule() {
+      if (this.scheduled || this.paused) return;
+      this.scheduled = true;
+      void Promise.resolve().then(() => {
+        this.scheduled = false;
+        this.drain();
+      });
+    }
+    drain() {
+      if (this.paused) return;
+      const waiting = Array.from(this.slots.values()).filter((slot) => slot.visible && !slot.image && !slot.failed).sort((first, second) => first.priority - second.priority);
+      for (const slot of waiting) {
+        if (this.activeUrls.size >= 4) break;
+        if (this.activeUrls.has(slot.url)) continue;
+        this.load(slot);
+      }
+    }
+    load(slot) {
+      const image = document.createElement("img");
+      image.className = "tv-artwork-image";
+      image.alt = "";
+      image.setAttribute("aria-hidden", "true");
+      image.referrerPolicy = "no-referrer";
+      slot.image = image;
+      slot.loading = true;
+      this.activeUrls.add(slot.url);
+      const complete = (success2) => {
+        if (slot.image !== image || !slot.loading) return;
+        slot.loading = false;
+        this.activeUrls.delete(slot.url);
+        window.clearTimeout(slot.timer);
+        image.onload = null;
+        image.onerror = null;
+        if (success2 && image.naturalWidth > 0 && image.naturalWidth * image.naturalHeight <= 8388608 && this.retainedPixels + image.naturalWidth * image.naturalHeight <= 16777216) {
+          slot.pixels = image.naturalWidth * image.naturalHeight;
+          this.retainedPixels += slot.pixels;
+          slot.target.classList.add("has-artwork");
+          slot.target.dataset.tvArtwork = "loaded";
+        } else {
+          slot.failed = true;
+          this.unload(slot);
+          slot.target.dataset.tvArtwork = "error";
+        }
+        this.schedule();
+      };
+      image.onload = () => complete(true);
+      image.onerror = () => complete(false);
+      slot.timer = window.setTimeout(() => complete(false), 8e3);
+      slot.target.appendChild(image);
+      image.src = slot.url;
+    }
+    unload(slot) {
+      this.retainedPixels -= slot.pixels || 0;
+      slot.pixels = void 0;
+      window.clearTimeout(slot.timer);
+      if (slot.loading) this.activeUrls.delete(slot.url);
+      slot.loading = false;
+      if (slot.image) {
+        slot.image.onload = null;
+        slot.image.onerror = null;
+        slot.image.removeAttribute("src");
+        slot.image.remove();
+        slot.image = void 0;
+      }
+      slot.target.classList.remove("has-artwork");
+      slot.target.dataset.tvArtwork = slot.failed ? "error" : "pending";
+    }
+    pause() {
+      this.paused = true;
+      this.refresh();
+    }
+    resume() {
+      this.paused = false;
+      this.refresh();
+    }
+  };
+
   // src/tv/details.ts
   function detailMetadata(detail2) {
     var _a, _b;
@@ -1178,10 +1428,11 @@
     return (_b = rows[nextRowIndex]) == null ? void 0 : _b[nextColumnIndex];
   }
   var TvDetails = class {
-    constructor(surface, catalog2, close) {
+    constructor(surface, catalog2, close, artwork2) {
       this.surface = surface;
       this.catalog = catalog2;
       this.close = close;
+      this.artwork = artwork2;
       this.rows = [];
       this.history = [];
       this.requestSequence = 0;
@@ -1223,9 +1474,11 @@
       return button;
     }
     clear() {
+      var _a;
       this.surface.textContent = "";
       this.surface.scrollTop = 0;
       this.surface.classList.add("tv-details");
+      (_a = this.artwork) == null ? void 0 : _a.refresh();
       this.rows = [];
     }
     save() {
@@ -1242,6 +1495,7 @@
       });
     }
     back() {
+      var _a;
       this.cancel();
       const previous = this.history.pop();
       if (!previous) {
@@ -1262,6 +1516,7 @@
         node.scrollTop = top;
       });
       this.surface.scrollTop = previous.scrollTop;
+      (_a = this.artwork) == null ? void 0 : _a.refresh();
     }
     move(direction) {
       var _a, _b;
@@ -1296,10 +1551,12 @@
       this.rows.push(["tv-overlay-back"]);
     }
     render(detail2) {
-      var _a;
+      var _a, _b, _c, _d;
       this.clear();
       this.surface.dataset.contentId = detail2.id;
       this.surface.dataset.contentKind = detail2.kind;
+      const backdrop = this.text(this.surface, "div", "", "detail-backdrop");
+      (_a = this.artwork) == null ? void 0 : _a.bind(backdrop, detail2.banner, 0);
       this.text(
         this.surface,
         "span",
@@ -1313,6 +1570,7 @@
         "POSTER NON DISPONIBILE",
         "detail-poster"
       );
+      (_b = this.artwork) == null ? void 0 : _b.bind(poster, detail2.poster, 1);
       poster.setAttribute("role", "img");
       poster.setAttribute("aria-label", "Placeholder poster");
       const information = this.text(header, "div", "", "detail-information");
@@ -1381,6 +1639,7 @@
           );
           this.rows.push(
             seasons.map((season, index) => {
+              var _a2;
               const identifier = "tv-season-" + index;
               const button = this.button(
                 row,
@@ -1390,12 +1649,13 @@
                 "season-card"
               );
               button.dataset.seasonId = season.id;
-              this.text(
+              const poster2 = this.text(
                 button,
                 "span",
                 "POSTER NON DISPONIBILE",
                 "season-poster"
               );
+              (_a2 = this.artwork) == null ? void 0 : _a2.bind(poster2, season.poster);
               this.text(
                 button,
                 "span",
@@ -1422,7 +1682,8 @@
           "detail-extra"
         );
       this.backButton();
-      (_a = document.getElementById("tv-detail-watch")) == null ? void 0 : _a.focus({ preventScroll: true });
+      (_c = this.artwork) == null ? void 0 : _c.refresh();
+      (_d = document.getElementById("tv-detail-watch")) == null ? void 0 : _d.focus({ preventScroll: true });
     }
     unavailable(message, episode) {
       var _a;
@@ -1448,7 +1709,7 @@
       (_a = document.getElementById("tv-overlay-back")) == null ? void 0 : _a.focus();
     }
     async openSeason(season) {
-      var _a, _b, _c;
+      var _a, _b, _c, _d;
       this.save();
       this.clear();
       this.surface.dataset.seasonId = season.id;
@@ -1501,6 +1762,7 @@
       else {
         const row = this.text(body, "div", "", "detail-horizontal episode-cards");
         const identifiers = result.value.items.map((episode, index) => {
+          var _a2;
           const identifier = "tv-episode-" + index;
           const button = this.button(
             row,
@@ -1513,12 +1775,13 @@
             "episode-card"
           );
           button.dataset.episodeId = episode.id;
-          this.text(
+          const poster = this.text(
             button,
             "span",
             "ANTEPRIMA NON DISPONIBILE",
             "episode-poster"
           );
+          (_a2 = this.artwork) == null ? void 0 : _a2.bind(poster, episode.poster, 1);
           this.text(button, "span", "Episodio " + episode.number, "episode-info");
           this.text(
             button,
@@ -1535,6 +1798,7 @@
         this.rows = [identifiers, ["tv-overlay-back"]];
         (_c = document.getElementById(identifiers[0])) == null ? void 0 : _c.focus({ preventScroll: true });
       }
+      (_d = this.artwork) == null ? void 0 : _d.refresh();
     }
   };
 
@@ -1574,6 +1838,10 @@
   var content = element("tv-content");
   var overlay = element("tv-overlay");
   var status = element("tv-status");
+  var artwork = new TvArtwork(
+    stage,
+    (target) => overlay.hidden || overlay.contains(target)
+  );
   var destinations = [
     { id: "search", label: "Cerca", icon: "search" },
     { id: "home", label: "Home", icon: "home" },
@@ -1596,8 +1864,8 @@
   var restoreFocus = "tv-hero-action";
   var lastRotation = Date.now();
   function setStatus(message = "") {
-    status.textContent = "P03 \xB7 " + (source === "fixture" ? "FIXTURE SINTETICHE" : import_catalog_metadata5.LIVE_APPROVED ? "SOLO SVILUPPO \xB7 LIVE" : "SERVIZIO LIVE BLOCCATO") + (message ? " \xB7 " + message : "");
-    status.title = "0.1.7-dev.4-dev-metadata+7d83de58a3d6";
+    status.textContent = "P03 \xB7 " + (source === "fixture" ? "FIXTURE SINTETICHE" : import_catalog_metadata6.LIVE_APPROVED ? "SOLO SVILUPPO \xB7 LIVE" : "SERVIZIO LIVE BLOCCATO") + (message ? " \xB7 " + message : "");
+    status.title = "0.1.7-dev.5-dev-metadata+bc3f9490d417";
   }
   function setupCatalog() {
     const registry = new ProviderRegistry();
@@ -1696,6 +1964,7 @@
     detailsView = void 0;
     overlay.hidden = true;
     overlay.textContent = "";
+    artwork.refresh();
     const button = selectedButton();
     if (button) {
       button.focus();
@@ -1712,6 +1981,7 @@
     if (wasLoading) renderHome();
     overlay.textContent = "";
     overlay.hidden = false;
+    artwork.refresh();
     makeText(overlay, "h1", title);
     makeButton(overlay, "tv-overlay-back", "Indietro", closeOverlay).focus();
   }
@@ -1726,7 +1996,7 @@
       "p",
       "Home Android TV \xB7 prototipo P03. Le immagini sono placeholder espliciti."
     );
-    makeText(overlay, "p", "Build 0.1.7-dev.4-dev-metadata+7d83de58a3d6");
+    makeText(overlay, "p", "Build 0.1.7-dev.5-dev-metadata+bc3f9490d417");
     makeButton(
       overlay,
       "tv-source-fixture",
@@ -1736,7 +2006,7 @@
     makeButton(
       overlay,
       "tv-source-service",
-      import_catalog_metadata5.LIVE_APPROVED ? "Servizio locale \u2014 test sviluppo live" : "Servizio locale \u2014 live bloccato",
+      import_catalog_metadata6.LIVE_APPROVED ? "Servizio locale \u2014 test sviluppo live" : "Servizio locale \u2014 live bloccato",
       () => changeSource("service")
     );
     makeButton(
@@ -1783,13 +2053,15 @@
       );
     }
     content.textContent = "";
+    artwork.bind(element("tv-background"), void 0, 0);
+    artwork.refresh();
     makeText(content, "p", "Caricamento\u2026 Back annulla.", "loading");
     setStatus("Caricamento\u2026");
     isLoading = true;
     requestController = new AbortController();
     const sequence = requestSequence;
-    const result = destination === "home" ? await catalog.home(import_catalog_metadata5.PROVIDER, { signal: requestController.signal }) : await catalog.catalog(
-      import_catalog_metadata5.PROVIDER,
+    const result = destination === "home" ? await catalog.home(import_catalog_metadata6.PROVIDER, { signal: requestController.signal }) : await catalog.catalog(
+      import_catalog_metadata6.PROVIDER,
       destination === "movies" ? "movie" : "tv-show",
       { kind: "number", number: 1 },
       { signal: requestController.signal }
@@ -1834,6 +2106,7 @@
     const hero = element("tv-hero");
     hero.textContent = "";
     const item = projection.featured[heroIndex];
+    artwork.bind(element("tv-background"), item == null ? void 0 : item.banner, 0);
     if (!item) return;
     makeText(hero, "p", "", "hero-label");
     makeText(hero, "h1", item.title);
@@ -1851,6 +2124,7 @@
       () => void detail(item)
     );
     button.addEventListener("focus", () => {
+      artwork.bind(element("tv-background"), item.banner, 0);
       focus = { row: 0, column: heroIndex };
       lastRotation = Date.now();
     });
@@ -1895,15 +2169,18 @@
           "poster"
         );
         poster.setAttribute("aria-hidden", "true");
+        artwork.bind(poster, item.poster);
         makeText(poster, "small", "POSTER NON DISPONIBILE");
         makeText(button, "span", metadata(item), "card-meta");
         makeText(button, "span", item.title, "card-title");
         button.addEventListener("focus", () => {
+          artwork.bind(element("tv-background"), item.banner, 0);
           focus = { row: rowIndex + 1, column };
           lastRotation = Date.now();
         });
       });
     });
+    artwork.refresh();
   }
   async function detail(item) {
     openOverlay("Caricamento dettagli\u2026");
@@ -1922,7 +2199,7 @@
       setStatus(result.error.message);
       return;
     }
-    detailsView = new TvDetails(overlay, catalog, closeOverlay);
+    detailsView = new TvDetails(overlay, catalog, closeOverlay, artwork);
     detailsView.render(result.value);
     setStatus();
   }
@@ -2066,11 +2343,17 @@
     if (!overlay.hidden) closeOverlay();
     else cancel();
     stopRotation();
+    artwork.pause();
   });
   document.addEventListener("visibilitychange", () => {
     lastRotation = Date.now();
-    if (document.hidden) stopRotation();
-    else startRotation();
+    if (document.hidden) {
+      stopRotation();
+      artwork.pause();
+    } else {
+      startRotation();
+      artwork.resume();
+    }
     if (document.hidden && detailsView) closeOverlay();
     if (document.hidden && requestController) {
       if (!overlay.hidden) {
@@ -2106,7 +2389,10 @@
     if (rotationTimer === void 0 && !document.hidden)
       rotationTimer = window.setInterval(rotateFeatured, 500);
   }
-  window.addEventListener("pageshow", startRotation);
+  window.addEventListener("pageshow", () => {
+    startRotation();
+    artwork.resume();
+  });
   startRotation();
   scale();
   setRail(false);

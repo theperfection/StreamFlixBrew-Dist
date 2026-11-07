@@ -112,6 +112,41 @@
         requestDescriptor3(input);
         return input;
       }
+      var ARTWORK_BASE = "https://cdn.streamingunity.fun/images/";
+      var ARTWORK_FILENAME = /^[a-f0-9]{8}-[a-f0-9]{4}-[a-f0-9]{4}-[a-f0-9]{4}-[a-f0-9]{12}\.webp$/;
+      function artworkFilename(images, type) {
+        if (!LIVE_APPROVED2 || images === void 0 || images === null)
+          return void 0;
+        var selected;
+        list(images, 100).forEach(function(image) {
+          if (!object(image)) invalid();
+          if (image.type !== type) return;
+          if (typeof image.filename !== "string" || image.filename.length !== 41 || !ARTWORK_FILENAME.test(image.filename))
+            invalid();
+          if (selected === void 0) selected = image.filename;
+        });
+        return selected;
+      }
+      function withArtwork(target, images, posterType, includeBanner) {
+        var poster = artworkFilename(images, posterType);
+        var banner = includeBanner ? artworkFilename(images, "background") : void 0;
+        if (poster !== void 0) target.poster = ARTWORK_BASE + poster;
+        if (banner !== void 0) target.banner = ARTWORK_BASE + banner;
+        return target;
+      }
+      function dtoImages(item, posterType, includeBanner) {
+        if (!LIVE_APPROVED2) return void 0;
+        var images = [];
+        function add(value, type) {
+          if (value === void 0) return;
+          if (typeof value !== "string" || value.indexOf(ARTWORK_BASE) !== 0 || value.length !== ARTWORK_BASE.length + 41 || !ARTWORK_FILENAME.test(value.slice(ARTWORK_BASE.length)))
+            invalid();
+          images.push({ type, filename: value.slice(ARTWORK_BASE.length) });
+        }
+        add(item.poster, posterType);
+        if (includeBanner) add(item.banner, "background");
+        return images;
+      }
       function summary(raw) {
         if (!object(raw)) invalid();
         var id = identity(raw.id), slug = text2(raw.slug, 180, false);
@@ -125,7 +160,7 @@
         };
         var plot = text2(raw.plot, 6e3, true);
         if (plot !== void 0) value.overview = plot;
-        return value;
+        return withArtwork(value, raw.images, "poster", true);
       }
       function unique(items2) {
         var seen = /* @__PURE__ */ Object.create(null);
@@ -241,12 +276,17 @@
                 if (!object(season)) invalid();
                 if (season.title_id !== void 0 && identity(season.title_id) !== input.id.split("-")[0])
                   invalid();
-                return {
-                  id: identity(season.id),
-                  show: { providerId: PROVIDER5, id: title2.id, kind: "tv-show" },
-                  number: integer(season.number, 0, 1e4),
-                  title: text2(season.name, 300, true)
-                };
+                return withArtwork(
+                  {
+                    id: identity(season.id),
+                    show: { providerId: PROVIDER5, id: title2.id, kind: "tv-show" },
+                    number: integer(season.number, 0, 1e4),
+                    title: text2(season.name, 300, true)
+                  },
+                  season.images,
+                  "poster",
+                  false
+                );
               })
             );
           if (title2.kind === "tv-show") title2.seasons = seasons2;
@@ -272,14 +312,19 @@
                   if (!object(episode)) invalid();
                   if (episode.season_id !== void 0 && identity(episode.season_id) !== seasonId)
                     invalid();
-                  return {
-                    id: identity(episode.id),
-                    seasonId,
-                    show: { providerId: PROVIDER5, id: title2.id, kind: "tv-show" },
-                    number: integer(episode.number, 0, 1e4),
-                    title: text2(episode.name, 300, true),
-                    overview: text2(episode.plot, 6e3, true)
-                  };
+                  return withArtwork(
+                    {
+                      id: identity(episode.id),
+                      seasonId,
+                      show: { providerId: PROVIDER5, id: title2.id, kind: "tv-show" },
+                      number: integer(episode.number, 0, 1e4),
+                      title: text2(episode.name, 300, true),
+                      overview: text2(episode.plot, 6e3, true)
+                    },
+                    episode.images,
+                    "cover",
+                    false
+                  );
                 })
               )
             };
@@ -318,7 +363,8 @@
             slug: item.id.slice(at + 1),
             name: item.title,
             type: item.kind === "movie" ? "movie" : "tv",
-            plot: item.overview
+            plot: item.overview,
+            images: dtoImages(item, "poster", true)
           };
         }
         if (!object(value)) invalid();
@@ -365,7 +411,12 @@
             r.seasons = list(d.seasons, 100).map(function(s) {
               if (!object(s) || !object(s.show) || s.show.providerId !== PROVIDER5 || s.show.id !== d.id || s.show.kind !== "tv-show")
                 invalid();
-              return { id: s.id, number: s.number, name: s.title };
+              return {
+                id: s.id,
+                number: s.number,
+                name: s.title,
+                images: dtoImages(s, "poster", false)
+              };
             });
           if (value.loadedSeason !== null) {
             var loaded = value.loadedSeason;
@@ -379,7 +430,8 @@
                   id: ep.id,
                   number: ep.number,
                   name: ep.title,
-                  plot: ep.overview
+                  plot: ep.overview,
+                  images: dtoImages(ep, "cover", false)
                 };
               })
             };
@@ -2046,7 +2098,7 @@
       render();
     }
   });
-  document.getElementById("catalog-build").textContent = "0.1.7-dev.4-dev-metadata+7d83de58a3d6";
+  document.getElementById("catalog-build").textContent = "0.1.7-dev.5-dev-metadata+bc3f9490d417";
   setup();
   home();
 })();

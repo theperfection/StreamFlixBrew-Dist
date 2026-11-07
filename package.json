@@ -1,6 +1,6 @@
 {
   "name": "streamflixbrew",
-  "version": "0.1.7-dev.4",
+  "version": "0.1.7-dev.5",
   "private": true,
   "packageType": "app",
   "appPath": "dist/index.html",

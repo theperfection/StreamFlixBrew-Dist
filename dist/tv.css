@@ -556,3 +556,82 @@ button:focus {
   font-size: 10px;
   margin-top: 2px;
 }
+
+/* P03.2: image layers never participate in the XML-derived layout sizing. */
+.poster,
+.detail-poster,
+.season-poster,
+.episode-poster {
+  position: relative;
+}
+.tv-artwork-image {
+  position: absolute;
+  left: 0;
+  top: 0;
+  width: 100%;
+  height: 100%;
+  object-fit: cover;
+  border-radius: inherit;
+  visibility: hidden;
+  pointer-events: none;
+}
+.has-artwork > .tv-artwork-image {
+  visibility: visible;
+}
+.has-artwork {
+  color: transparent;
+}
+.has-artwork > small {
+  visibility: hidden;
+}
+#tv-background.has-artwork::after {
+  content: "";
+  position: absolute;
+  left: 0;
+  right: 0;
+  top: 0;
+  bottom: 0;
+  background: linear-gradient(90deg, #181818, transparent 50%);
+}
+#tv-background.has-artwork > span {
+  visibility: hidden;
+}
+.detail-backdrop {
+  position: fixed;
+  top: 0;
+  bottom: 0;
+  right: 0;
+  left: var(--tv-rail-width);
+  pointer-events: none;
+}
+.detail-backdrop.has-artwork::after {
+  content: "";
+  position: absolute;
+  left: 0;
+  right: 0;
+  top: 0;
+  bottom: 0;
+  background: linear-gradient(to top, #181818, rgba(0, 0, 0, 0.4));
+}
+.detail-backdrop.has-artwork ~ .detail-backdrop-label {
+  visibility: hidden;
+}
+.detail-header,
+.detail-seasons,
+.episode-body,
+.detail-extra,
+.tv-details > button {
+  position: relative;
+}
+.season-card:focus .season-poster.has-artwork::after,
+.episode-card:focus .episode-poster.has-artwork::after {
+  content: "";
+  position: absolute;
+  left: 0;
+  top: 0;
+  right: 0;
+  bottom: 0;
+  border: 4px solid #fff;
+  border-radius: inherit;
+  pointer-events: none;
+}

@@ -34117,7 +34117,7 @@ Schedule: ${scheduleItems.map((seg) => segmentToString(seg))} pos: ${this.timeli
     log("Errore JavaScript: " + message);
   };
   function report() {
-    return makeReport("0.1.7-dev.4-dev-metadata+7d83de58a3d6", findings, keys, errors, events);
+    return makeReport("0.1.7-dev.5-dev-metadata+bc3f9490d417", findings, keys, errors, events);
   }
   function showPages(heading, content, reset = true) {
     title.textContent = heading;
@@ -34379,7 +34379,7 @@ Schedule: ${scheduleItems.map((seg) => segmentToString(seg))} pos: ${this.timeli
       log("Documento nascosto: player arrestato");
     }
   });
-  element("build").textContent = "0.1.7-dev.4-dev-metadata+7d83de58a3d6";
+  element("build").textContent = "0.1.7-dev.5-dev-metadata+bc3f9490d417";
   refreshAvplay();
   summary();
   focusAt(
