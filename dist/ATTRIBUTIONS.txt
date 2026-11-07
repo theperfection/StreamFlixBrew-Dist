@@ -21,3 +21,17 @@ del repository. FFmpeg è uno strumento di generazione e non viene distribuito.
 12 secondi, 640×360, 24 fps, H.264 Constrained Baseline / livello 3.0, yuv420p,
 AAC-LC stereo 48 kHz, MP4 faststart. Si deve vedere il pattern muoversi e udire un
 tono continuo: regolare il volume prima del test. Non prova 4K, DRM, HLS o sottotitoli.
+
+
+Catalogo P02.6 / P02.6B
+
+Contratti informati da Streamflix Reborn, commit
+9060f60eaef18f8c2fe1360f71af679e81d35048, Apache-2.0.
+README upstream: Lory-Stan TANASI, autore originale Streamflix;
+“Independent Developer”, manutenzione Reborn. Nessun NOTICE upstream trovato.
+Trasporto, parser e UI sono implementazioni originali; nessun codice Kotlin
+o extractor copiato. La licenza del codice non concede diritti sui contenuti
+o sull'accesso alla sorgente dei metadati.
+Le fixture dimostrative incluse sono interamente sintetiche; nessuna cattura HTTP,
+registrazione di sessione, immagine o contenuto audiovisivo di terzi è incluso.
+Nessuna licenza generale è assegnata al modulo.

@@ -1,0 +1,66 @@
+:root {
+  font-family: Arial, sans-serif;
+  font-size: 1.5vw;
+  background: #101724;
+  color: #edf4ff;
+}
+* {
+  box-sizing: border-box;
+}
+body {
+  margin: 0;
+  padding: 2vh 4vw;
+}
+h1 {
+  font-size: 1.5rem;
+  margin: 0.4rem 0;
+}
+h2 {
+  font-size: 1.2rem;
+}
+small {
+  font-size: 0.6rem;
+  color: #b9c6d8;
+}
+header p {
+  margin: 0.4rem 0;
+}
+#catalog-mode {
+  color: #74e2c2;
+}
+#catalog-content {
+  display: grid;
+  grid-template-columns: 1fr 1fr;
+  padding-bottom: 12vh;
+}
+#catalog-content p,
+output {
+  grid-column: 1 / -1;
+  overflow-wrap: break-word;
+  line-height: 1.35;
+}
+button {
+  font: inherit;
+  color: #edf4ff;
+  background: #263a55;
+  border: 0.15rem solid transparent;
+  border-radius: 0.3rem;
+  padding: 0.6rem;
+  margin: 0.3rem;
+  min-height: 2.8rem;
+  text-align: left;
+}
+button:focus {
+  outline: 0.2rem solid #74e2c2;
+  background: #3c5677;
+}
+#catalog-status {
+  position: fixed;
+  bottom: 0;
+  left: 0;
+  right: 0;
+  padding: 0.6rem 4vw;
+  background: #101724;
+  color: #74e2c2;
+  font-size: 0.85rem;
+}

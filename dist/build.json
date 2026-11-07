@@ -1,5 +1,7 @@
 {
-  "version": "0.1.6",
-  "buildId": "0.1.6+852d47bdc5f4",
-  "target": "chrome76"
+  "version": "0.1.7-dev.1",
+  "buildId": "0.1.7-dev.1-dev-metadata+f9f24857fb97",
+  "target": "chrome76",
+  "profile": "p026b-development-metadata",
+  "liveMetadata": true
 }

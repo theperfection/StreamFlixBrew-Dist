@@ -1,12 +1,9 @@
 {
   "name": "streamflixbrew",
-  "version": "0.1.6",
+  "version": "0.1.7-dev.1",
   "private": true,
-  "description": "Diagnostica opzionale di stabilità HLS.js",
   "packageType": "app",
-  "appName": "StreamFlixBrew — diagnostica P01.5",
   "appPath": "dist/index.html",
-  "serviceFile": "dist/local-diagnostic.cjs",
   "keys": [
     "MediaPlayPause",
     "MediaPlay",
@@ -14,5 +11,8 @@
     "MediaStop",
     "MediaFastForward",
     "MediaRewind"
-  ]
+  ],
+  "serviceFile": "dist/local-diagnostic.cjs",
+  "appName": "StreamFlixBrew — SOLO SVILUPPO metadati",
+  "description": "Test privato P02.6B; non distribuire come release"
 }
